@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { ProductoService } from '@/services/ProductoService'
 import { CategoriaProductoService } from '@/services/CategoriaProductoService'
+import { formatCurrency } from '@/utils/formatCurrency'
 import type { Producto } from '@/types/database'
 
 const productoSchema = z.object({
@@ -281,17 +282,11 @@ export function ProductosPage() {
     },
   })
 
-  const formatoMoneda = new Intl.NumberFormat('es-CO', {
-    style: 'currency',
-    currency: 'COP',
-    maximumFractionDigits: 0,
-  })
-
   const columnas: DataTableColumn<Producto>[] = [
     { header: 'Nombre', accessor: (p) => p.nombre, sortValue: (p) => p.nombre.toLowerCase() },
     {
       header: 'Precio base',
-      accessor: (p) => formatoMoneda.format(p.precio_base),
+      accessor: (p) => formatCurrency(p.precio_base),
       sortValue: (p) => p.precio_base,
       className: 'text-right',
     },

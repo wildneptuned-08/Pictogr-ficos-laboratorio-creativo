@@ -65,9 +65,9 @@ export const PedidoService = {
       p_cliente_id: input.cliente_id,
       p_canal_ingreso: input.canal_ingreso,
       p_detalle: input.detalle as unknown as Json,
-      p_fecha_entrega: input.fecha_entrega,
+      p_fecha_entrega: input.fecha_entrega || undefined,
       p_prioridad: input.prioridad,
-      p_observaciones: input.observaciones,
+      p_observaciones: input.observaciones || undefined,
       p_descuento: input.descuento,
       p_anticipo: input.anticipo,
       p_metodo_pago: input.metodo_pago,
@@ -140,6 +140,10 @@ export const PedidoService = {
 
     if (error) {
       if (error.code === 'P0004') return fail('No fue posible encontrar el pedido.')
+      if (error.code === 'P0007') return fail('Un pedido entregado no puede volver a estado Nuevo.')
+      if (error.code === 'P0008') {
+        return fail('No se puede marcar como Entregado un pedido con saldo pendiente.')
+      }
       return fail(friendlyMessage(error, FALLBACK_ERROR))
     }
 

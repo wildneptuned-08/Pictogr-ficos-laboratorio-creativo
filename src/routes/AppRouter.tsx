@@ -4,6 +4,7 @@ import { RequireAuth } from '@/routes/RequireAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { PedidosPage } from '@/pages/PedidosPage'
+import { PedidoDetallePage } from '@/pages/PedidoDetallePage'
 import { ClientesPage } from '@/pages/ClientesPage'
 import { ProductosPage } from '@/pages/ProductosPage'
 import { FinanzasPage } from '@/pages/FinanzasPage'
@@ -24,6 +25,7 @@ export function AppRouter() {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="pedidos" element={<PedidosPage />} />
+            <Route path="pedidos/:id" element={<PedidoDetallePage />} />
             <Route path="clientes" element={<ClientesPage />} />
             <Route path="productos" element={<ProductosPage />} />
             <Route path="finanzas" element={<FinanzasPage />} />
