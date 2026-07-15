@@ -704,27 +704,19 @@ Antes de publicar cualquier cambio deberán cumplirse los criterios definidos en
 
 
 
-Frontend
+Frontend: Vercel — [https://pictogr-ficos-laboratorio-creativo.vercel.app](https://pictogr-ficos-laboratorio-creativo.vercel.app)
 
 
 
-Vercel
+Backend: Supabase (proyecto `ixvcrcivoixdwiloxkxb`)
 
 
 
-Backend
+Repositorio: GitHub — despliegue automático en cada push a `main`.
 
 
 
-Supabase
-
-
-
-Repositorio
-
-
-
-GitHub
+Variables de entorno requeridas en Vercel (Project Settings → Environment Variables): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (mismos valores que `.env` local, ver `52_SUPABASE_SCHEMA.md`).
 
 
 
@@ -736,11 +728,11 @@ GitHub
 
 
 
-Actualmente el proyecto se encuentra en fase de documentación y planificación.
+Las 14 etapas de `54_PLAN_DESARROLLO.md` están completas y en producción, salvo la Etapa 7 (Inventario), formalmente bloqueada hasta completar `46_ANALISIS_INVENTARIO.md` por decisión del propietario del negocio.
 
 
 
-No se iniciará el desarrollo hasta que toda la documentación haya sido auditada y aprobada.
+El sistema está desplegado y en uso en la URL indicada en la sección "Despliegue".
 
 
 
