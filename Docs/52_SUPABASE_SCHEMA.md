@@ -145,6 +145,7 @@ Almacena la información de cada cliente.
 | direccion | TEXT | Opcional | |
 | ciudad | VARCHAR(80) | | |
 | observaciones | TEXT | | |
+| activo | BOOLEAN | | Agregado en Etapa 4 (2026-07-15) para resolver la operación "Eliminar Cliente (desactivar)" de 53_API_CONTRACT.md, que no tenía campo equivalente. Decisión del propietario del negocio. |
 | created_at | TIMESTAMP | | |
 | updated_at | TIMESTAMP | | |
 
@@ -331,6 +332,8 @@ Suma: 100%. Estos valores reemplazan al ejemplo ilustrativo (30/10/15/45%) de 43
 
 ## presupuesto
 
+Regla de negocio (42_ANALISIS_PRESUPUESTO.md): solo puede existir un presupuesto `activo` por `(anio, mes)` — implementado como índice único parcial, no como UNIQUE pleno, para poder conservar revisiones históricas inactivas del mismo mes (nunca se eliminan presupuestos antiguos).
+
 | Campo | Tipo |
 |---|---|
 | id | UUID |
@@ -357,6 +360,26 @@ Suma: 100%. Estos valores reemplazan al ejemplo ilustrativo (30/10/15/45%) de 43
 | usuario | VARCHAR |
 | fecha | TIMESTAMP |
 | comentario | TEXT |
+
+---
+
+# TABLA
+
+## configuracion
+
+Descripción
+
+Tabla de fila única con los parámetros generales del negocio. Agregada en Etapa 4 (2026-07-15) para resolver las operaciones "Actualizar Empresa" y "Actualizar Preferencias" de `ConfiguracionService` (53_API_CONTRACT.md), que no tenían tabla equivalente. `dias_habiles_mes` es el valor "Días hábiles (configurable)" que 42_ANALISIS_PRESUPUESTO.md exige para calcular la meta diaria del Presupuesto.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| id | UUID | |
+| nombre_empresa | VARCHAR(150) | |
+| correo_contacto | VARCHAR(150) | Opcional |
+| telefono_contacto | VARCHAR(30) | Opcional |
+| dias_habiles_mes | INTEGER | Usado por PresupuestoService para calcular la meta diaria |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
 
 ---
 
