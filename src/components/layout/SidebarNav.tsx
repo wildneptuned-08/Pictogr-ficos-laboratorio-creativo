@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { LogOut, Palette } from 'lucide-react'
 import { NAV_ITEMS } from '@/constants/navigation'
-import { useSession } from '@/hooks/useSession'
+import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/config/supabaseClient'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -24,7 +24,8 @@ interface SidebarNavProps {
 }
 
 export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
-  const { user } = useSession()
+  const { session } = useAuth()
+  const user = session?.user
 
   return (
     <div className="flex h-full flex-col gap-4">
