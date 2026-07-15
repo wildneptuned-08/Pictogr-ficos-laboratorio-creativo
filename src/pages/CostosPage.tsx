@@ -17,8 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ProductoService } from '@/services/ProductoService'
-import { CostoService } from '@/services/CostoService'
+import { CostoService, type CostoConProducto } from '@/services/CostoService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import type { CostoProducto, Producto } from '@/types/database'
 
@@ -73,7 +72,7 @@ function CostoFormDialog({
     }
 
     toast.success('Costos guardados correctamente.')
-    queryClient.invalidateQueries({ queryKey: ['costos-producto'] })
+    queryClient.invalidateQueries({ queryKey: ['costos-con-productos'] })
     onOpenChange(false)
   }
 
@@ -152,40 +151,21 @@ function CostoFormDialog({
   )
 }
 
-interface FilaCosto {
-  producto: Producto
-  costo: CostoProducto | null
-}
-
 export function CostosPage() {
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null)
   const [formAbierto, setFormAbierto] = useState(false)
 
-  const { data: productos = [], isLoading: cargandoProductos } = useQuery({
-    queryKey: ['productos'],
+  const { data: filas = [], isLoading } = useQuery({
+    queryKey: ['costos-con-productos'],
     queryFn: async () => {
-      const resultado = await ProductoService.list()
+      const resultado = await CostoService.listarConProductos()
       if (!resultado.success) throw new Error(resultado.error?.message)
       return resultado.data ?? []
     },
   })
+  const costoPorProducto = new Map(filas.map((f) => [f.producto.id, f.costo]))
 
-  const { data: costos = [], isLoading: cargandoCostos } = useQuery({
-    queryKey: ['costos-producto'],
-    queryFn: async () => {
-      const resultado = await CostoService.listarTodos()
-      if (!resultado.success) throw new Error(resultado.error?.message)
-      return resultado.data ?? []
-    },
-  })
-
-  const costoPorProducto = new Map(costos.map((c) => [c.producto_id, c]))
-  const filas: FilaCosto[] = productos.map((producto) => ({
-    producto,
-    costo: costoPorProducto.get(producto.id) ?? null,
-  }))
-
-  const columnas: DataTableColumn<FilaCosto>[] = [
+  const columnas: DataTableColumn<CostoConProducto>[] = [
     { header: 'Producto', accessor: ({ producto }) => producto.nombre, sortValue: ({ producto }) => producto.nombre.toLowerCase() },
     {
       header: 'Precio base',
@@ -235,7 +215,7 @@ export function CostosPage() {
     <>
       <PageHeader title="Costos" description="Cálculo automático de costos." />
 
-      {cargandoProductos || cargandoCostos ? (
+      {isLoading ? (
         <p className="text-sm text-muted-foreground">Cargando costos...</p>
       ) : (
         <DataTable

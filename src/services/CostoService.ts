@@ -1,7 +1,7 @@
 import { supabase } from '@/config/supabaseClient'
 import { ok, fail, friendlyMessage } from '@/services/utils/serviceResponse'
 import type { ServiceResponse } from '@/types/service'
-import type { CostoProducto } from '@/types/database'
+import type { CostoProducto, Producto } from '@/types/database'
 
 export interface CalcularCostoInput {
   producto_id: string
@@ -20,6 +20,11 @@ export interface Rentabilidad {
   costoTotal: number
   utilidad: number
   margenPorcentaje: number
+}
+
+export interface CostoConProducto {
+  producto: Producto
+  costo: CostoProducto | null
 }
 
 const FALLBACK_ERROR = 'No fue posible completar la operación con los costos del producto.'
@@ -103,6 +108,31 @@ export const CostoService = {
 
     if (error) return fail(friendlyMessage(error, 'No fue posible listar los costos.'))
     return ok(data)
+  },
+
+  // Junta productos activos con sus costos (si ya los tienen). Consulta
+  // `productos` directamente en vez de reusar ProductoService para evitar
+  // una dependencia circular (ProductoService ya delega en CostoService).
+  async listarConProductos(): Promise<ServiceResponse<CostoConProducto[]>> {
+    const [{ data: productos, error: errorProductos }, costos] = await Promise.all([
+      supabase.from('productos').select().eq('activo', true).order('nombre'),
+      this.listarTodos(),
+    ])
+
+    if (errorProductos || !productos) {
+      return fail(friendlyMessage(errorProductos!, 'No fue posible listar los productos.'))
+    }
+    if (!costos.success || !costos.data) {
+      return fail(costos.error?.message ?? 'No fue posible listar los costos.')
+    }
+
+    const costoPorProducto = new Map(costos.data.map((c) => [c.producto_id, c]))
+    return ok(
+      productos.map((producto) => ({
+        producto,
+        costo: costoPorProducto.get(producto.id) ?? null,
+      })),
+    )
   },
 
   // Recalcula el costo_total a partir de los componentes ya almacenados.
