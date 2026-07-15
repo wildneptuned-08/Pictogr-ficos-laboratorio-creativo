@@ -26,7 +26,13 @@ async function insertarMovimiento(
 ): Promise<ServiceResponse<MovimientoFinanciero>> {
   const { data, error } = await supabase
     .from('movimientos_financieros')
-    .insert(input)
+    .insert({
+      ...input,
+      categoria: input.categoria || undefined,
+      descripcion: input.descripcion || undefined,
+      pedido_id: input.pedido_id || undefined,
+      fecha: input.fecha || undefined,
+    })
     .select()
     .single()
 
