@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { PedidoService } from '@/services/PedidoService'
 import { ClienteService } from '@/services/ClienteService'
 import { ProductoService } from '@/services/ProductoService'
@@ -115,18 +116,20 @@ function NuevoPedidoDialog({
     navigate(`/pedidos/${resultado.data!.id}`)
   }
 
+  const campoAltura = 'h-11 data-[size=default]:h-11'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-full sm:max-w-[960px]">
         <DialogHeader>
           <DialogTitle>Nuevo pedido</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3" noValidate>
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cliente_id">Cliente</Label>
             <Select onValueChange={(value) => setValue('cliente_id', value, { shouldValidate: true })}>
-              <SelectTrigger id="cliente_id" className="w-full">
+              <SelectTrigger id="cliente_id" className={cn('w-full', campoAltura)}>
                 <SelectValue placeholder="Selecciona un cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -142,11 +145,11 @@ function NuevoPedidoDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="canal_ingreso">Canal de ingreso</Label>
               <Select onValueChange={(value) => setValue('canal_ingreso', value as (typeof CANALES)[number], { shouldValidate: true })}>
-                <SelectTrigger id="canal_ingreso" className="w-full">
+                <SelectTrigger id="canal_ingreso" className={cn('w-full', campoAltura)}>
                   <SelectValue placeholder="Selecciona" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,7 +168,7 @@ function NuevoPedidoDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="prioridad">Prioridad</Label>
               <Select onValueChange={(value) => setValue('prioridad', value as (typeof PRIORIDADES)[number])}>
-                <SelectTrigger id="prioridad" className="w-full">
+                <SelectTrigger id="prioridad" className={cn('w-full', campoAltura)}>
                   <SelectValue placeholder="Media" />
                 </SelectTrigger>
                 <SelectContent>
@@ -179,42 +182,51 @@ function NuevoPedidoDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
             <Label>Productos</Label>
+
+            <div className="hidden gap-2 px-1 text-xs text-muted-foreground sm:grid sm:grid-cols-[1fr_120px_160px_2.25rem]">
+              <span>Producto</span>
+              <span>Cantidad</span>
+              <span>Precio</span>
+              <span aria-hidden="true" />
+            </div>
+
             {fields.map((field, index) => (
-              <div key={field.id} className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Select
-                    onValueChange={(value) => {
-                      setValue(`detalle.${index}.producto_id`, value, { shouldValidate: true })
-                      const producto = productos.find((p) => p.id === value)
-                      if (producto) {
-                        setValue(`detalle.${index}.precio_unitario`, producto.precio_base)
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {productos.map((producto) => (
-                        <SelectItem key={producto.id} value={producto.id}>
-                          {producto.nombre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div
+                key={field.id}
+                className="grid grid-cols-1 items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[1fr_120px_160px_2.25rem] sm:border-0 sm:bg-transparent sm:p-0"
+              >
+                <Select
+                  onValueChange={(value) => {
+                    setValue(`detalle.${index}.producto_id`, value, { shouldValidate: true })
+                    const producto = productos.find((p) => p.id === value)
+                    if (producto) {
+                      setValue(`detalle.${index}.precio_unitario`, producto.precio_base)
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn('w-full', campoAltura)}>
+                    <SelectValue placeholder="Producto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productos.map((producto) => (
+                      <SelectItem key={producto.id} value={producto.id}>
+                        {producto.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   type="number"
-                  className="w-20"
-                  placeholder="Cant."
+                  className={campoAltura}
+                  placeholder="Cantidad"
                   {...register(`detalle.${index}.cantidad`)}
                 />
                 <Input
                   type="number"
                   step="0.01"
-                  className="w-28"
+                  className={campoAltura}
                   placeholder="Precio"
                   {...register(`detalle.${index}.precio_unitario`)}
                 />
@@ -222,6 +234,7 @@ function NuevoPedidoDialog({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
+                  className="justify-self-start sm:justify-self-center"
                   aria-label="Quitar producto"
                   onClick={() => remove(index)}
                   disabled={fields.length === 1}
@@ -245,24 +258,24 @@ function NuevoPedidoDialog({
             </Button>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="descuento">Descuento</Label>
-              <Input id="descuento" type="number" step="0.01" {...register('descuento')} />
+              <Input id="descuento" type="number" step="0.01" className={campoAltura} {...register('descuento')} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="anticipo">Anticipo</Label>
-              <Input id="anticipo" type="number" step="0.01" {...register('anticipo')} />
+              <Input id="anticipo" type="number" step="0.01" className={campoAltura} {...register('anticipo')} />
             </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="fecha_entrega">Fecha de entrega</Label>
-            <Input id="fecha_entrega" type="date" {...register('fecha_entrega')} />
+            <Input id="fecha_entrega" type="date" className={campoAltura} {...register('fecha_entrega')} />
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting} className="sm:w-auto">
               {isSubmitting ? 'Creando...' : 'Crear pedido'}
             </Button>
           </DialogFooter>
