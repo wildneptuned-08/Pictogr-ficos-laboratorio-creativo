@@ -98,6 +98,13 @@ export const CostoService = {
     return ok(data)
   },
 
+  async listarTodos(): Promise<ServiceResponse<CostoProducto[]>> {
+    const { data, error } = await supabase.from('costos_producto').select()
+
+    if (error) return fail(friendlyMessage(error, 'No fue posible listar los costos.'))
+    return ok(data)
+  },
+
   // Recalcula el costo_total a partir de los componentes ya almacenados.
   // No recalcula desde Inventario: el esquema actual no vincula insumos con
   // productos, así que el costo por insumo se actualiza manualmente (ver
