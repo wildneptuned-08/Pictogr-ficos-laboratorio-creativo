@@ -6,6 +6,7 @@ import { ArrowLeft, Copy, FileText, Trash2, Upload, Download } from 'lucide-reac
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/data/StatusBadge'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -207,7 +208,7 @@ export function PedidoDetallePage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
-          <section className="rounded-lg border border-border p-4">
+          <Card className="p-4">
             <h3 className="mb-3 font-medium">Productos</h3>
             <div className="flex flex-col gap-2">
               {(detalleQuery.data ?? []).map((item) => (
@@ -241,9 +242,9 @@ export function PedidoDetallePage() {
                 <span>{formatCurrency(pedido.saldo_pendiente)}</span>
               </div>
             </div>
-          </section>
+          </Card>
 
-          <section className="rounded-lg border border-border p-4">
+          <Card className="p-4">
             <h3 className="mb-3 font-medium">Archivos</h3>
             <div className="flex flex-col gap-2">
               {(archivosQuery.data ?? []).map((archivo) => (
@@ -297,9 +298,9 @@ export function PedidoDetallePage() {
               <Upload className="size-4" aria-hidden="true" />
               {subirArchivoMutation.isPending ? 'Subiendo...' : 'Subir archivo'}
             </Button>
-          </section>
+          </Card>
 
-          <section className="rounded-lg border border-border p-4">
+          <Card className="p-4">
             <h3 className="mb-3 font-medium">Historial</h3>
             <ol className="flex flex-col gap-3">
               {(historialQuery.data ?? []).map((evento) => (
@@ -316,11 +317,11 @@ export function PedidoDetallePage() {
                 </li>
               ))}
             </ol>
-          </section>
+          </Card>
         </div>
 
         <div className="flex flex-col gap-4">
-          <section className="rounded-lg border border-border p-4">
+          <Card className="p-4">
             <h3 className="mb-3 font-medium">Cambiar estado</h3>
             <div className="flex flex-col gap-2">
               <Select value={estadoSeleccionado} onValueChange={(v) => setEstadoSeleccionado(v as EstadoPedido)}>
@@ -342,9 +343,9 @@ export function PedidoDetallePage() {
                 {cambiarEstadoMutation.isPending ? 'Actualizando...' : 'Aplicar cambio'}
               </Button>
             </div>
-          </section>
+          </Card>
 
-          <section className="rounded-lg border border-border p-4">
+          <Card className="p-4">
             <h3 className="mb-3 font-medium">Registrar pago</h3>
             {pedido.saldo_pendiente === 0 ? (
               <p className="text-sm text-muted-foreground">Este pedido ya está totalmente pagado.</p>
@@ -366,9 +367,9 @@ export function PedidoDetallePage() {
                 </Button>
               </div>
             )}
-          </section>
+          </Card>
 
-          <section className="rounded-lg border border-border p-4 text-sm">
+          <Card className="p-4 text-sm">
             <h3 className="mb-3 font-medium">Detalles</h3>
             <dl className="flex flex-col gap-1.5">
               <div className="flex justify-between">
@@ -400,7 +401,7 @@ export function PedidoDetallePage() {
                 </dd>
               </div>
             </dl>
-          </section>
+          </Card>
         </div>
       </div>
 

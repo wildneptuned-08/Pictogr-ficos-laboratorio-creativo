@@ -10,6 +10,7 @@ import {
   Target,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Card } from '@/components/ui/card'
 import { KpiCard } from '@/components/data/KpiCard'
 import { VentasChart } from '@/components/data/VentasChart'
 import { DashboardService } from '@/services/DashboardService'
@@ -224,15 +225,15 @@ export function DashboardPage() {
       </div>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-3">
-        <div className="rounded-lg border border-border p-4 lg:col-span-2">
+        <Card className="p-4 lg:col-span-2">
           <h3 className="mb-3 flex items-center gap-1.5 font-medium">
             <LayoutDashboard className="size-4" aria-hidden="true" />
             Ventas mensuales
           </h3>
           <VentasChart data={datosGrafico} />
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 flex items-center gap-1.5 font-medium">
             <Target className="size-4" aria-hidden="true" />
             Cumplimiento del presupuesto
@@ -265,11 +266,11 @@ export function DashboardPage() {
               No hay un presupuesto activo registrado para este mes.
             </p>
           )}
-        </div>
+        </Card>
       </div>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-3">
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 font-medium">Bolsillos financieros</h3>
           <div className="flex flex-col gap-2 text-sm">
             {bolsillos.map((bolsillo) => (
@@ -281,9 +282,9 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 font-medium">Pedidos por estado</h3>
           <div className="flex flex-col gap-2 text-sm">
             {conteoPorEstado.map(({ estado, cantidad }) => (
@@ -293,9 +294,9 @@ export function DashboardPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 flex items-center gap-1.5 font-medium">
             <Package className="size-4" aria-hidden="true" />
             Inventario crítico
@@ -314,11 +315,11 @@ export function DashboardPage() {
           ) : (
             <p className="text-sm text-muted-foreground">Todo el inventario está en niveles normales.</p>
           )}
-        </div>
+        </Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 flex items-center gap-1.5 font-medium">
             <ShoppingCart className="size-4" aria-hidden="true" />
             Productos más vendidos
@@ -335,9 +336,9 @@ export function DashboardPage() {
           ) : (
             <p className="text-sm text-muted-foreground">Todavía no hay ventas registradas.</p>
           )}
-        </div>
+        </Card>
 
-        <div className="rounded-lg border border-border p-4">
+        <Card className="p-4">
           <h3 className="mb-3 flex items-center gap-1.5 font-medium">
             <Users className="size-4" aria-hidden="true" />
             Clientes frecuentes
@@ -354,7 +355,7 @@ export function DashboardPage() {
           ) : (
             <p className="text-sm text-muted-foreground">Todavía no hay pedidos registrados.</p>
           )}
-        </div>
+        </Card>
       </div>
     </>
   )

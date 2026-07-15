@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/data/EmptyState'
 
 export interface DataTableColumn<T> {
@@ -74,7 +75,7 @@ export function DataTable<T>({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg border border-border">
+      <Card className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
@@ -113,7 +114,7 @@ export function DataTable<T>({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
       {totalPaginas > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">

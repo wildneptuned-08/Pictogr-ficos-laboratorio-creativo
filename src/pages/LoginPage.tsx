@@ -3,12 +3,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Palette } from 'lucide-react'
 import { supabase } from '@/config/supabaseClient'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CursorTrail } from '@/components/layout/CursorTrail'
+import logo from '@/assets/LogoPicto.jpeg'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Ingresa tu correo.').email('Correo inválido.'),
@@ -49,10 +50,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm rounded-lg border border-border p-6">
+    <div className="relative flex min-h-svh items-center justify-center bg-background p-4">
+      <CursorTrail />
+      <div className="glow-card relative w-full max-w-sm rounded-xl p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Palette className="size-8 text-primary" aria-hidden="true" />
+          <img src={logo} alt="PictoGráficos" className="size-16 rounded-full" />
           <h1 className="text-lg font-semibold">PictoGráficos</h1>
           <p className="text-sm text-muted-foreground">
             Inicia sesión para continuar.

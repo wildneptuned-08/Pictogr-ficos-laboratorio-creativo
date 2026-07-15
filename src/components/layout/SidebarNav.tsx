@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { LogOut, Palette } from 'lucide-react'
+import { LogOut } from 'lucide-react'
+import logo from '@/assets/LogoPicto.jpeg'
 import { NAV_ITEMS } from '@/constants/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/config/supabaseClient'
@@ -30,9 +31,15 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex h-14 items-center gap-2 px-4">
-        <Palette className="size-6 shrink-0 text-primary" aria-hidden="true" />
+        <img
+          src={logo}
+          alt={collapsed ? 'PictoGráficos' : ''}
+          className="size-8 shrink-0 rounded-full"
+        />
         {!collapsed && (
-          <span className="truncate font-semibold">PictoGráficos</span>
+          <span className="truncate font-heading font-semibold">
+            PictoGráficos
+          </span>
         )}
       </div>
 
@@ -46,15 +53,25 @@ export function SidebarNav({ collapsed = false, onNavigate }: SidebarNavProps) {
                 onClick={onNavigate}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    'group flex items-center gap-3 rounded-r-md border-l-2 py-2 pr-3 pl-2.5 text-sm font-medium transition-colors duration-300',
                     isActive
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      ? 'border-primary bg-gradient-to-r from-primary/15 via-primary/5 to-transparent text-sidebar-accent-foreground'
+                      : 'border-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                   )
                 }
               >
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
-                {!collapsed && <span className="truncate">{label}</span>}
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      className={cn(
+                        'size-4 shrink-0 transition-colors duration-300',
+                        isActive ? 'text-primary' : 'group-hover:text-primary',
+                      )}
+                      aria-hidden="true"
+                    />
+                    {!collapsed && <span className="truncate">{label}</span>}
+                  </>
+                )}
               </NavLink>
             )
 

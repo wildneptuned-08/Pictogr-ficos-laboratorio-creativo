@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -68,7 +69,7 @@ function SeccionEmpresa() {
   }
 
   return (
-    <section className="rounded-lg border border-border p-4">
+    <Card className="p-4">
       <h3 className="mb-3 font-medium">Datos de la empresa</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3" noValidate>
         <div className="flex flex-col gap-1.5">
@@ -90,7 +91,7 @@ function SeccionEmpresa() {
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
       </form>
-    </section>
+    </Card>
   )
 }
 
@@ -131,7 +132,7 @@ function SeccionPreferencias() {
   }
 
   return (
-    <section className="rounded-lg border border-border p-4">
+    <Card className="p-4">
       <h3 className="mb-1 font-medium">Preferencias</h3>
       <p className="mb-3 text-sm text-muted-foreground">
         Los días hábiles del mes se usan para calcular la meta diaria del Presupuesto.
@@ -154,7 +155,7 @@ function SeccionPreferencias() {
           {isSubmitting ? 'Guardando...' : 'Guardar'}
         </Button>
       </form>
-    </section>
+    </Card>
   )
 }
 
@@ -197,7 +198,7 @@ function SeccionBolsillos() {
   })
 
   return (
-    <section className="rounded-lg border border-border p-4">
+    <Card className="p-4">
       <h3 className="mb-1 font-medium">Porcentajes de bolsillos financieros</h3>
       <p className="mb-3 text-sm text-muted-foreground">
         Cada venta se distribuye automáticamente entre estos bolsillos según su porcentaje.
@@ -235,7 +236,7 @@ function SeccionBolsillos() {
       >
         {mutation.isPending ? 'Guardando...' : 'Guardar porcentajes'}
       </Button>
-    </section>
+    </Card>
   )
 }
 

@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 interface KpiCardProps {
@@ -18,13 +19,13 @@ const TONOS: Record<NonNullable<KpiCardProps['tone']>, string> = {
 
 export function KpiCard({ icon: Icon, title, value, description, tone = 'default' }: KpiCardProps) {
   return (
-    <div className="rounded-lg border border-border p-3">
+    <Card className="p-3">
       <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
         <Icon className="size-3.5" aria-hidden="true" />
         {title}
       </div>
       <p className={cn('text-lg font-semibold', TONOS[tone])}>{value}</p>
       {description && <p className="text-xs text-muted-foreground">{description}</p>}
-    </div>
+    </Card>
   )
 }

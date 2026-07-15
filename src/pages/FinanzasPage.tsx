@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/data/DataTable'
+import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -251,18 +252,18 @@ export function FinanzasPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
         {bolsillos.map((bolsillo) => (
-          <div key={bolsillo.id} className="rounded-lg border border-border p-3">
+          <Card key={bolsillo.id} className="p-3">
             <p className="text-xs text-muted-foreground">{bolsillo.nombre}</p>
             <p className="text-lg font-semibold">{formatCurrency(bolsillo.saldo_actual)}</p>
-          </div>
+          </Card>
         ))}
-        <div className="rounded-lg border border-border p-3">
+        <Card className="p-3">
           <p className="text-xs text-muted-foreground">Utilidad del mes</p>
           <p className="text-lg font-semibold">{formatCurrency(utilidadMes)}</p>
-        </div>
+        </Card>
       </div>
 
-      <div className="mb-4 rounded-lg border border-border p-4">
+      <Card className="mb-4 p-4">
         <h3 className="mb-3 font-medium">Flujo de caja (últimos 6 meses)</h3>
         <div className="flex flex-col gap-1 text-sm">
           <div className="grid grid-cols-4 gap-2 font-medium text-muted-foreground">
@@ -283,7 +284,7 @@ export function FinanzasPage() {
             <p className="text-muted-foreground">Sin movimientos en los últimos 6 meses.</p>
           )}
         </div>
-      </div>
+      </Card>
 
       <PageHeader
         title="Movimientos"
