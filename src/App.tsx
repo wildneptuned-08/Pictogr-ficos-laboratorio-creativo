@@ -3,6 +3,7 @@ import { queryClient } from '@/lib/queryClient'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppRouter } from '@/routes/AppRouter'
+import { Toaster } from '@/components/ui/sonner'
 
 function App() {
   return (
@@ -10,6 +11,7 @@ function App() {
       <AuthProvider>
         <ThemeProvider>
           <AppRouter />
+          <Toaster />
         </ThemeProvider>
       </AuthProvider>
     </QueryClientProvider>

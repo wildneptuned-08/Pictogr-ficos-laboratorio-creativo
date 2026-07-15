@@ -5,6 +5,7 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { PedidosPage } from '@/pages/PedidosPage'
 import { ClientesPage } from '@/pages/ClientesPage'
+import { ProductosPage } from '@/pages/ProductosPage'
 import { FinanzasPage } from '@/pages/FinanzasPage'
 import { PresupuestoPage } from '@/pages/PresupuestoPage'
 import { InventarioPage } from '@/pages/InventarioPage'
@@ -24,6 +25,7 @@ export function AppRouter() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="pedidos" element={<PedidosPage />} />
             <Route path="clientes" element={<ClientesPage />} />
+            <Route path="productos" element={<ProductosPage />} />
             <Route path="finanzas" element={<FinanzasPage />} />
             <Route path="presupuesto" element={<PresupuestoPage />} />
             <Route path="inventario" element={<InventarioPage />} />
