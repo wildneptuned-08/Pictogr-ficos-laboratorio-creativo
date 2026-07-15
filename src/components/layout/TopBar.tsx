@@ -42,6 +42,7 @@ export function TopBar({ onOpenMobileNav }: TopBarProps) {
           <Input
             type="search"
             placeholder="Buscar..."
+            aria-label="Buscar"
             className="w-56 pl-8"
           />
         </div>
