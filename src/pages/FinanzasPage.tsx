@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog'
 import { FinanzasService } from '@/services/FinanzasService'
 import { formatCurrency } from '@/utils/formatCurrency'
+import { rangoDelMesActual } from '@/utils/dateRanges'
 import type { MovimientoFinanciero } from '@/types/database'
 
 const movimientoSchema = z.object({
@@ -38,17 +39,6 @@ const movimientoSchema = z.object({
 
 type MovimientoFormInput = z.input<typeof movimientoSchema>
 type MovimientoFormValues = z.output<typeof movimientoSchema>
-
-function rangoDelMesActual() {
-  const hoy = new Date()
-  const anio = hoy.getFullYear()
-  const mes = hoy.getMonth() + 1
-  const ultimoDia = new Date(anio, mes, 0).getDate()
-  return {
-    desde: `${anio}-${String(mes).padStart(2, '0')}-01`,
-    hasta: `${anio}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`,
-  }
-}
 
 function MovimientoFormDialog({
   open,
