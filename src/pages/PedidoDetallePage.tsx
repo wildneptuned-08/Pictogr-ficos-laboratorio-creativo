@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Copy, FileText, Trash2, Upload, Download } from 'lucide-react'
+import { ArrowLeft, Copy, FileText, Trash2, Upload, Download, Pencil, Plus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusBadge } from '@/components/data/StatusBadge'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -10,6 +13,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -17,14 +21,317 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 import { PedidoService } from '@/services/PedidoService'
 import { ClienteService } from '@/services/ClienteService'
 import { ProductoService } from '@/services/ProductoService'
 import { ArchivoService } from '@/services/ArchivoService'
 import { formatCurrency } from '@/utils/formatCurrency'
-import type { EstadoPedido } from '@/types/database'
+import type { EstadoPedido, Pedido, PedidoDetalle, Producto } from '@/types/database'
 
 const ESTADOS: EstadoPedido[] = ['Nuevo', 'Diseño', 'Producción', 'Listo', 'Entregado', 'Cancelado']
+const CANALES = ['WhatsApp', 'Instagram', 'Facebook', 'Tienda', 'Otro'] as const
+const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'] as const
+const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Nequi', 'Daviplata', 'Tarjeta', 'Otro'] as const
+
+const editarPedidoSchema = z.object({
+  canal_ingreso: z.enum(CANALES),
+  prioridad: z.enum(PRIORIDADES),
+  fecha_entrega: z.string().optional(),
+  metodo_pago: z.enum(METODOS_PAGO).optional(),
+  descuento: z.coerce.number().nonnegative().optional(),
+  observaciones: z.string().optional(),
+  detalle: z
+    .array(
+      z.object({
+        producto_id: z.string().min(1, 'Selecciona un producto.'),
+        cantidad: z.coerce.number().int().positive('Debe ser mayor que cero.'),
+        precio_unitario: z.coerce.number().nonnegative(),
+      }),
+    )
+    .min(1, 'Agrega al menos un producto.'),
+})
+
+type EditarPedidoInput = z.input<typeof editarPedidoSchema>
+type EditarPedidoValues = z.output<typeof editarPedidoSchema>
+
+function EditarPedidoDialog({
+  open,
+  onOpenChange,
+  pedido,
+  detalle,
+  productos,
+  onGuardado,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  pedido: Pedido
+  detalle: PedidoDetalle[]
+  productos: Producto[]
+  onGuardado: () => void
+}) {
+  const {
+    register,
+    handleSubmit,
+    control,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<EditarPedidoInput, unknown, EditarPedidoValues>({
+    resolver: zodResolver(editarPedidoSchema),
+    values: {
+      canal_ingreso: pedido.canal_ingreso,
+      prioridad: pedido.prioridad,
+      fecha_entrega: pedido.fecha_entrega ?? '',
+      metodo_pago: pedido.metodo_pago ?? undefined,
+      descuento: pedido.descuento,
+      observaciones: pedido.observaciones ?? '',
+      detalle:
+        detalle.length > 0
+          ? detalle.map((d) => ({
+              producto_id: d.producto_id,
+              cantidad: d.cantidad,
+              precio_unitario: d.precio_unitario,
+            }))
+          : [{ producto_id: '', cantidad: 1, precio_unitario: 0 }],
+    },
+  })
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'detalle' })
+
+  const lineas = useWatch({ control, name: 'detalle' })
+  const canalActual = useWatch({ control, name: 'canal_ingreso' })
+  const prioridadActual = useWatch({ control, name: 'prioridad' })
+  const metodoActual = useWatch({ control, name: 'metodo_pago' })
+  const descuentoActual = useWatch({ control, name: 'descuento' })
+  const descuento = Number(descuentoActual) || 0
+  const subtotal = (lineas ?? []).reduce(
+    (total, l) => total + (Number(l.cantidad) || 0) * (Number(l.precio_unitario) || 0),
+    0,
+  )
+  const valorTotal = subtotal - descuento
+  const saldoResultante = valorTotal - pedido.anticipo
+
+  async function onSubmit(values: EditarPedidoValues) {
+    const resultado = await PedidoService.actualizarDetalle(pedido.id, values)
+    if (!resultado.success) {
+      toast.error(resultado.error?.message ?? 'No fue posible guardar los cambios.')
+      return
+    }
+    toast.success('Pedido actualizado.')
+    onGuardado()
+    onOpenChange(false)
+  }
+
+  const campoAltura = 'h-11 data-[size=default]:h-11'
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-full sm:max-w-[960px]">
+        <DialogHeader>
+          <DialogTitle>Editar pedido {pedido.numero_pedido}</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4" noValidate>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit_canal">Canal de ingreso</Label>
+              <Select
+                value={canalActual}
+                onValueChange={(v) => setValue('canal_ingreso', v as (typeof CANALES)[number])}
+              >
+                <SelectTrigger id="edit_canal" className={cn('w-full', campoAltura)}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANALES.map((canal) => (
+                    <SelectItem key={canal} value={canal}>
+                      {canal}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit_prioridad">Prioridad</Label>
+              <Select
+                value={prioridadActual}
+                onValueChange={(v) => setValue('prioridad', v as (typeof PRIORIDADES)[number])}
+              >
+                <SelectTrigger id="edit_prioridad" className={cn('w-full', campoAltura)}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORIDADES.map((prioridad) => (
+                    <SelectItem key={prioridad} value={prioridad}>
+                      {prioridad}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+            <Label>Productos</Label>
+            <div className="hidden gap-2 px-1 text-xs text-muted-foreground sm:grid sm:grid-cols-[1fr_120px_160px_2.25rem]">
+              <span>Producto</span>
+              <span>Cantidad</span>
+              <span>Precio</span>
+              <span aria-hidden="true" />
+            </div>
+
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="grid grid-cols-1 items-end gap-2 rounded-md border border-border/60 bg-muted/20 p-2 sm:grid-cols-[1fr_120px_160px_2.25rem] sm:border-0 sm:bg-transparent sm:p-0"
+              >
+                <Select
+                  value={lineas?.[index]?.producto_id ?? ''}
+                  onValueChange={(value) => {
+                    setValue(`detalle.${index}.producto_id`, value, { shouldValidate: true })
+                    const producto = productos.find((p) => p.id === value)
+                    if (producto) {
+                      setValue(`detalle.${index}.precio_unitario`, producto.precio_base)
+                    }
+                  }}
+                >
+                  <SelectTrigger className={cn('w-full', campoAltura)}>
+                    <SelectValue placeholder="Producto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productos.map((producto) => (
+                      <SelectItem key={producto.id} value={producto.id}>
+                        {producto.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  className={campoAltura}
+                  placeholder="Cantidad"
+                  {...register(`detalle.${index}.cantidad`)}
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  className={campoAltura}
+                  placeholder="Precio"
+                  {...register(`detalle.${index}.precio_unitario`)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="justify-self-start sm:justify-self-center"
+                  aria-label="Quitar producto"
+                  onClick={() => remove(index)}
+                  disabled={fields.length === 1}
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+            {errors.detalle?.root?.message && (
+              <p className="text-sm text-destructive">{errors.detalle.root.message}</p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={() => append({ producto_id: '', cantidad: 1, precio_unitario: 0 })}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Agregar producto
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit_descuento">Descuento</Label>
+              <Input
+                id="edit_descuento"
+                type="number"
+                step="0.01"
+                className={campoAltura}
+                {...register('descuento')}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit_metodo">Método de pago</Label>
+              <Select
+                value={metodoActual ?? ''}
+                onValueChange={(v) => setValue('metodo_pago', v as (typeof METODOS_PAGO)[number])}
+              >
+                <SelectTrigger id="edit_metodo" className={cn('w-full', campoAltura)}>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {METODOS_PAGO.map((metodo) => (
+                    <SelectItem key={metodo} value={metodo}>
+                      {metodo}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit_fecha">Fecha de entrega</Label>
+            <Input id="edit_fecha" type="date" className={campoAltura} {...register('fecha_entrega')} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit_obs">Observaciones</Label>
+            <Textarea id="edit_obs" {...register('observaciones')} />
+          </div>
+
+          <div className="flex flex-col gap-1 rounded-lg border border-border bg-muted/20 p-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total</span>
+              <span>{formatCurrency(valorTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Ya pagado (anticipo)</span>
+              <span>{formatCurrency(pedido.anticipo)}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span>Saldo resultante</span>
+              <span className={saldoResultante < 0 ? 'text-destructive' : ''}>
+                {formatCurrency(saldoResultante)}
+              </span>
+            </div>
+            {saldoResultante < 0 && (
+              <p className="text-xs text-destructive">
+                El total no puede quedar por debajo de lo ya pagado.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting || saldoResultante < 0}>
+              {isSubmitting ? 'Guardando...' : 'Guardar cambios'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function PedidoDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -35,6 +342,7 @@ export function PedidoDetallePage() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoPedido | ''>('')
   const [valorPago, setValorPago] = useState('')
   const [cancelarAbierto, setCancelarAbierto] = useState(false)
+  const [editarAbierto, setEditarAbierto] = useState(false)
 
   const pedidoQuery = useQuery({
     queryKey: ['pedido', id],
@@ -188,6 +496,12 @@ export function PedidoDetallePage() {
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge estado={pedido.estado} />
+            {pedido.estado !== 'Entregado' && pedido.estado !== 'Cancelado' && (
+              <Button variant="outline" size="sm" onClick={() => setEditarAbierto(true)}>
+                <Pencil className="size-4" aria-hidden="true" />
+                Editar
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => duplicarMutation.mutate()}>
               <Copy className="size-4" aria-hidden="true" />
               Duplicar
@@ -404,6 +718,18 @@ export function PedidoDetallePage() {
           </Card>
         </div>
       </div>
+
+      <EditarPedidoDialog
+        open={editarAbierto}
+        onOpenChange={setEditarAbierto}
+        pedido={pedido}
+        detalle={detalleQuery.data ?? []}
+        productos={productos}
+        onGuardado={() => {
+          invalidarTodo()
+          queryClient.invalidateQueries({ queryKey: ['pedido-detalle', id] })
+        }}
+      />
 
       <ConfirmDialog
         open={cancelarAbierto}

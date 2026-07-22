@@ -9,6 +9,7 @@ export interface CrearProductoInput {
   nombre: string
   descripcion?: string
   precio_base: number
+  proveedor_id?: string | null
 }
 
 export type ActualizarProductoInput = Partial<CrearProductoInput>

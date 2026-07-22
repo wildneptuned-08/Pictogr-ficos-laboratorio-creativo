@@ -18,6 +18,7 @@ export type TipoMovimientoFinanciero = Enums['tipo_movimiento_financiero']
 
 export type Cliente = Tables['clientes']['Row']
 export type CategoriaProducto = Tables['categorias_producto']['Row']
+export type Proveedor = Tables['proveedores']['Row']
 export type Producto = Tables['productos']['Row']
 export type Pedido = Tables['pedidos']['Row']
 export type PedidoDetalle = Tables['pedido_detalle']['Row']

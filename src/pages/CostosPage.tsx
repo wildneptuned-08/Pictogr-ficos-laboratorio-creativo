@@ -80,7 +80,14 @@ function CostoFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Costos de {producto?.nombre}</DialogTitle>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span>Costos de {producto?.nombre}</span>
+            {producto?.codigo && (
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                {producto.codigo}
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3" noValidate>
@@ -166,7 +173,20 @@ export function CostosPage() {
   const costoPorProducto = new Map(filas.map((f) => [f.producto.id, f.costo]))
 
   const columnas: DataTableColumn<CostoConProducto>[] = [
-    { header: 'Producto', accessor: ({ producto }) => producto.nombre, sortValue: ({ producto }) => producto.nombre.toLowerCase() },
+    {
+      header: 'Producto',
+      accessor: ({ producto }) => (
+        <div className="flex items-center gap-2">
+          <span>{producto.nombre}</span>
+          {producto.codigo && (
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+              {producto.codigo}
+            </span>
+          )}
+        </div>
+      ),
+      sortValue: ({ producto }) => producto.nombre.toLowerCase(),
+    },
     {
       header: 'Precio base',
       accessor: ({ producto }) => formatCurrency(producto.precio_base),

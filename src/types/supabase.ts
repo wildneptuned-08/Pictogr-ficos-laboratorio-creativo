@@ -304,6 +304,7 @@ export type Database = {
           id: string
           nombre: string
           proveedor: string | null
+          proveedor_id: string | null
           stock_actual: number
           stock_minimo: number
           unidad_medida: string
@@ -312,12 +313,13 @@ export type Database = {
         Insert: {
           activo?: boolean
           categoria?: string | null
-          codigo: string
+          codigo?: string
           costo_unitario?: number
           created_at?: string
           id?: string
           nombre: string
           proveedor?: string | null
+          proveedor_id?: string | null
           stock_actual?: number
           stock_minimo?: number
           unidad_medida: string
@@ -332,12 +334,21 @@ export type Database = {
           id?: string
           nombre?: string
           proveedor?: string | null
+          proveedor_id?: string | null
           stock_actual?: number
           stock_minimo?: number
           unidad_medida?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventario_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       movimientos_financieros: {
         Row: {
@@ -603,31 +614,37 @@ export type Database = {
         Row: {
           activo: boolean
           categoria_id: string
+          codigo: string | null
           created_at: string
           descripcion: string | null
           id: string
           nombre: string
           precio_base: number
+          proveedor_id: string | null
           updated_at: string
         }
         Insert: {
           activo?: boolean
           categoria_id: string
+          codigo?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
           nombre: string
           precio_base: number
+          proveedor_id?: string | null
           updated_at?: string
         }
         Update: {
           activo?: boolean
           categoria_id?: string
+          codigo?: string | null
           created_at?: string
           descripcion?: string | null
           id?: string
           nombre?: string
           precio_base?: number
+          proveedor_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -638,13 +655,81 @@ export type Database = {
             referencedRelation: "categorias_producto"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "productos_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      proveedores: {
+        Row: {
+          created_at: string
+          id: string
+          nombre: string
+          prefijo_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nombre: string
+          prefijo_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nombre?: string
+          prefijo_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      actualizar_pedido_detalle: {
+        Args: {
+          p_pedido_id: string
+          p_detalle: Json
+          p_descuento?: number
+          p_fecha_entrega?: string
+          p_prioridad?: Database["public"]["Enums"]["prioridad_pedido"]
+          p_canal_ingreso?: Database["public"]["Enums"]["canal_ingreso_pedido"]
+          p_observaciones?: string
+          p_metodo_pago?: Database["public"]["Enums"]["metodo_pago"]
+        }
+        Returns: {
+          anticipo: number
+          canal_ingreso: Database["public"]["Enums"]["canal_ingreso_pedido"]
+          cliente_id: string
+          created_at: string
+          descuento: number
+          estado: Database["public"]["Enums"]["estado_pedido"]
+          fecha_entrega: string | null
+          fecha_pedido: string
+          id: string
+          metodo_pago: Database["public"]["Enums"]["metodo_pago"] | null
+          numero_pedido: string
+          observaciones: string | null
+          prioridad: Database["public"]["Enums"]["prioridad_pedido"]
+          saldo_pendiente: number
+          subtotal: number
+          updated_at: string
+          valor_total: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pedidos"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       cambiar_estado_pedido: {
         Args: {
           p_comentario?: string

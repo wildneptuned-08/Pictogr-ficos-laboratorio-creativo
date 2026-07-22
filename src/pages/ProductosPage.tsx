@@ -28,14 +28,20 @@ import {
 } from '@/components/ui/dialog'
 import { ProductoService } from '@/services/ProductoService'
 import { CategoriaProductoService } from '@/services/CategoriaProductoService'
+import { ProveedorService } from '@/services/ProveedorService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import type { Producto } from '@/types/database'
+
+// Radix Select no admite un item con value="", así que se usa un centinela
+// para representar "sin proveedor".
+const SIN_PROVEEDOR = '__sin_proveedor__'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio.'),
   categoria_id: z.string().min(1, 'La categoría es obligatoria.'),
   precio_base: z.coerce.number().positive('El precio base debe ser mayor que cero.'),
   descripcion: z.string().optional(),
+  proveedor_id: z.string().optional(),
 })
 
 type ProductoFormInput = z.input<typeof productoSchema>
@@ -149,6 +155,15 @@ function ProductoFormDialog({
     },
   })
 
+  const { data: proveedores = [] } = useQuery({
+    queryKey: ['proveedores'],
+    queryFn: async () => {
+      const resultado = await ProveedorService.list()
+      if (!resultado.success) throw new Error(resultado.error?.message)
+      return resultado.data ?? []
+    },
+  })
+
   const {
     register,
     handleSubmit,
@@ -164,15 +179,24 @@ function ProductoFormDialog({
           categoria_id: producto.categoria_id,
           precio_base: producto.precio_base,
           descripcion: producto.descripcion ?? '',
+          proveedor_id: producto.proveedor_id ?? SIN_PROVEEDOR,
         }
       : undefined,
   })
   const categoriaId = useWatch({ control, name: 'categoria_id' })
+  const proveedorId = useWatch({ control, name: 'proveedor_id' })
 
   async function onSubmit(values: ProductoFormValues) {
+    const payload = {
+      ...values,
+      proveedor_id:
+        !values.proveedor_id || values.proveedor_id === SIN_PROVEEDOR
+          ? null
+          : values.proveedor_id,
+    }
     const resultado = esEdicion
-      ? await ProductoService.update(producto!.id, values)
-      : await ProductoService.create(values)
+      ? await ProductoService.update(producto!.id, payload)
+      : await ProductoService.create(payload)
 
     if (!resultado.success) {
       toast.error(resultado.error?.message ?? 'No fue posible guardar el producto.')
@@ -218,6 +242,31 @@ function ProductoFormDialog({
             </Select>
             {errors.categoria_id && (
               <p className="text-sm text-destructive">{errors.categoria_id.message}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="proveedor_id">Proveedor</Label>
+            <Select
+              value={proveedorId ?? SIN_PROVEEDOR}
+              onValueChange={(value) => setValue('proveedor_id', value)}
+            >
+              <SelectTrigger id="proveedor_id" className="w-full">
+                <SelectValue placeholder="Sin proveedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_PROVEEDOR}>Sin proveedor</SelectItem>
+                {proveedores.map((proveedor) => (
+                  <SelectItem key={proveedor.id} value={proveedor.id}>
+                    {proveedor.nombre} ({proveedor.prefijo_id})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {esEdicion && (
+              <p className="text-xs text-muted-foreground">
+                El código ya asignado no cambia al editar el proveedor.
+              </p>
             )}
           </div>
 
@@ -283,7 +332,20 @@ export function ProductosPage() {
   })
 
   const columnas: DataTableColumn<Producto>[] = [
-    { header: 'Nombre', accessor: (p) => p.nombre, sortValue: (p) => p.nombre.toLowerCase() },
+    {
+      header: 'Nombre',
+      accessor: (p) => (
+        <div className="flex items-center gap-2">
+          <span>{p.nombre}</span>
+          {p.codigo && (
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+              {p.codigo}
+            </span>
+          )}
+        </div>
+      ),
+      sortValue: (p) => p.nombre.toLowerCase(),
+    },
     {
       header: 'Precio base',
       accessor: (p) => formatCurrency(p.precio_base),

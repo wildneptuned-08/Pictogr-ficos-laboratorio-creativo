@@ -41,6 +41,16 @@ export interface ActualizarPedidoInput {
   metodo_pago?: MetodoPago
 }
 
+export interface ActualizarDetalleInput {
+  detalle: DetalleInput[]
+  descuento?: number
+  fecha_entrega?: string
+  prioridad?: PrioridadPedido
+  canal_ingreso?: CanalIngresoPedido
+  observaciones?: string
+  metodo_pago?: MetodoPago
+}
+
 export interface ListarPedidosFiltros {
   clienteId?: string
   estado?: EstadoPedido
@@ -91,6 +101,42 @@ export const PedidoService = {
       .single()
 
     if (error) return fail(friendlyMessage(error, FALLBACK_ERROR))
+    return ok(data)
+  },
+
+  // Edita las líneas del pedido (productos/cantidades/precios) y su descuento,
+  // recalculando totales y saldo de forma atómica vía RPC.
+  async actualizarDetalle(
+    id: string,
+    input: ActualizarDetalleInput,
+  ): Promise<ServiceResponse<Pedido>> {
+    if (input.detalle.length === 0) {
+      return fail('El pedido debe tener al menos un producto.')
+    }
+
+    const { data, error } = await supabase.rpc('actualizar_pedido_detalle', {
+      p_pedido_id: id,
+      p_detalle: input.detalle as unknown as Json,
+      p_descuento: input.descuento,
+      p_fecha_entrega: input.fecha_entrega || undefined,
+      p_prioridad: input.prioridad,
+      p_canal_ingreso: input.canal_ingreso,
+      p_observaciones: input.observaciones || undefined,
+      p_metodo_pago: input.metodo_pago,
+    })
+
+    if (error) {
+      if (error.code === 'P0002') return fail('El pedido debe tener al menos un producto.')
+      if (error.code === 'P0003') return fail('El total del pedido debe ser mayor que cero.')
+      if (error.code === 'P0004') return fail('No fue posible encontrar el pedido.')
+      if (error.code === 'P0010') {
+        return fail('El nuevo total no puede ser menor que lo que el cliente ya pagó.')
+      }
+      if (error.code === 'P0011') {
+        return fail('No se puede editar un pedido entregado o cancelado.')
+      }
+      return fail(friendlyMessage(error, FALLBACK_ERROR))
+    }
     return ok(data)
   },
 
