@@ -188,7 +188,9 @@ export const PedidoService = {
       if (error.code === 'P0004') return fail('No fue posible encontrar el pedido.')
       if (error.code === 'P0007') return fail('Un pedido entregado no puede volver a estado Nuevo.')
       if (error.code === 'P0008') {
-        return fail('No se puede marcar como Entregado un pedido con saldo pendiente.')
+        return fail(
+          'No se puede marcar como Entregado un pedido con saldo pendiente. Registra el pago completo primero.',
+        )
       }
       return fail(friendlyMessage(error, FALLBACK_ERROR))
     }

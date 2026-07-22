@@ -343,6 +343,7 @@ export function PedidoDetallePage() {
   const [valorPago, setValorPago] = useState('')
   const [cancelarAbierto, setCancelarAbierto] = useState(false)
   const [editarAbierto, setEditarAbierto] = useState(false)
+  const [confirmarListoAbierto, setConfirmarListoAbierto] = useState(false)
 
   const pedidoQuery = useQuery({
     queryKey: ['pedido', id],
@@ -487,6 +488,29 @@ export function PedidoDetallePage() {
   const cliente = clientes.find((c) => c.id === pedido.cliente_id)
   const nombreProducto = (productoId: string) =>
     productos.find((p) => p.id === productoId)?.nombre ?? '—'
+
+  // Reglas de estado según el saldo (10_MODULO_PEDIDOS.md, "Validaciones"):
+  // "Entregado" se bloquea con saldo pendiente (la RPC también lo impide con
+  // P0008); "Listo" solo advierte, para no frenar la operación del taller.
+  const saldoPendiente = pedido.saldo_pendiente
+  const tieneSaldo = saldoPendiente > 0
+  const entregaBloqueada = tieneSaldo
+  const listoConSaldo = estadoSeleccionado === 'Listo' && tieneSaldo
+
+  function aplicarCambioEstado() {
+    if (!estadoSeleccionado) return
+    if (estadoSeleccionado === 'Entregado' && entregaBloqueada) {
+      toast.error(
+        `No se puede marcar como Entregado: quedan ${formatCurrency(saldoPendiente)} de saldo pendiente.`,
+      )
+      return
+    }
+    if (listoConSaldo) {
+      setConfirmarListoAbierto(true)
+      return
+    }
+    cambiarEstadoMutation.mutate(estadoSeleccionado)
+  }
 
   return (
     <>
@@ -644,15 +668,38 @@ export function PedidoDetallePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {ESTADOS.map((estado) => (
-                    <SelectItem key={estado} value={estado} disabled={estado === pedido.estado}>
+                    <SelectItem
+                      key={estado}
+                      value={estado}
+                      disabled={
+                        estado === pedido.estado || (estado === 'Entregado' && entregaBloqueada)
+                      }
+                    >
                       {estado}
+                      {estado === 'Entregado' && entregaBloqueada && ' (requiere saldo en cero)'}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {tieneSaldo && (
+                <p
+                  className={cn(
+                    'rounded-md px-2 py-1.5 text-xs',
+                    listoConSaldo
+                      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {listoConSaldo
+                    ? `Este pedido tiene ${formatCurrency(saldoPendiente)} de saldo pendiente. Puedes marcarlo como Listo, pero deberás cobrarlo antes de entregarlo.`
+                    : `Saldo pendiente de ${formatCurrency(saldoPendiente)}: el estado Entregado permanece bloqueado hasta que se registre el pago completo.`}
+                </p>
+              )}
+
               <Button
                 disabled={!estadoSeleccionado || cambiarEstadoMutation.isPending}
-                onClick={() => estadoSeleccionado && cambiarEstadoMutation.mutate(estadoSeleccionado)}
+                onClick={aplicarCambioEstado}
               >
                 {cambiarEstadoMutation.isPending ? 'Actualizando...' : 'Aplicar cambio'}
               </Button>
@@ -728,6 +775,17 @@ export function PedidoDetallePage() {
         onGuardado={() => {
           invalidarTodo()
           queryClient.invalidateQueries({ queryKey: ['pedido-detalle', id] })
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmarListoAbierto}
+        onOpenChange={setConfirmarListoAbierto}
+        title="¿Marcar como Listo con saldo pendiente?"
+        description={`Al cliente aún le faltan ${formatCurrency(saldoPendiente)} por pagar. El pedido puede quedar Listo, pero no podrás marcarlo como Entregado hasta registrar el pago completo.`}
+        confirmLabel="Marcar como Listo"
+        onConfirm={async () => {
+          await cambiarEstadoMutation.mutateAsync('Listo')
         }}
       />
 
