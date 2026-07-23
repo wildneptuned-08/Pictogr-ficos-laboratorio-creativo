@@ -119,7 +119,9 @@ export const InventarioService = {
 
     if (error) return fail(friendlyMessage(error, 'No fue posible consultar el stock crítico.'))
 
-    const criticos = data.filter((item) => item.stock_actual <= item.stock_minimo)
+    // Estrictamente por debajo: estar justo en el mínimo no es crítico.
+    // Misma regla que bajoMinimo() en InventarioPage.
+    const criticos = data.filter((item) => item.stock_actual < item.stock_minimo)
     return ok(criticos)
   },
 

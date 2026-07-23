@@ -51,8 +51,10 @@ const insumoSchema = z.object({
 type InsumoFormInput = z.input<typeof insumoSchema>
 type InsumoFormValues = z.output<typeof insumoSchema>
 
+// "Por debajo del mínimo" es estricto: un insumo que está justo en su mínimo
+// todavía alcanza. Con <= el 62% del inventario real quedaba en alerta.
 function bajoMinimo(insumo: Inventario): boolean {
-  return insumo.stock_actual <= insumo.stock_minimo
+  return insumo.stock_actual < insumo.stock_minimo
 }
 
 function InsumoFormDialog({

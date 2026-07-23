@@ -4,13 +4,12 @@ import { DashboardService } from '@/services/DashboardService'
 import { FinanzasService } from '@/services/FinanzasService'
 import { InventarioService } from '@/services/InventarioService'
 import { PedidoService } from '@/services/PedidoService'
-import { ok, fail } from '@/services/utils/serviceResponse'
-import type { ServiceResponse } from '@/types/service'
+import { ok } from '@/services/utils/serviceResponse'
 import { rangoDelMesActual } from '@/utils/dateRanges'
 
-const EXPORTACION_NO_DISPONIBLE_V1 =
-  'Las exportaciones (Excel, PDF, CSV) están planificadas para la versión 2 del sistema.'
-
+// La exportación a Excel/PDF/CSV vive en src/utils/exportar.ts: necesita los
+// nombres ya resueltos (cliente, bolsillo, proveedor) que arma la página, y
+// escribe un archivo en el navegador, que no es responsabilidad del servicio.
 export const ReporteService = {
   async ventas(desde?: string, hasta?: string) {
     const pedidos = await PedidoService.list()
@@ -73,17 +72,4 @@ export const ReporteService = {
     })
   },
 
-  // Exportaciones explícitamente fuera de alcance de la V1
-  // (Docs/55_ROADMAP_PRODUCTO.md y 53_API_CONTRACT.md las marcan "(V2)").
-  async exportarExcel(): Promise<ServiceResponse<never>> {
-    return fail(EXPORTACION_NO_DISPONIBLE_V1)
-  },
-
-  async exportarPDF(): Promise<ServiceResponse<never>> {
-    return fail(EXPORTACION_NO_DISPONIBLE_V1)
-  },
-
-  async exportarCSV(): Promise<ServiceResponse<never>> {
-    return fail(EXPORTACION_NO_DISPONIBLE_V1)
-  },
 }
