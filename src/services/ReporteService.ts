@@ -17,7 +17,7 @@ export const ReporteService = {
     if (!pedidos.success || !pedidos.data) return pedidos
 
     const filtrados = pedidos.data.filter((pedido) => {
-      if (pedido.estado === 'Cancelado') return false
+      if (pedido.estado === 'Cancelado' || pedido.estado === 'Venta con pérdida') return false
       if (desde && pedido.fecha_pedido < desde) return false
       if (hasta && pedido.fecha_pedido > hasta) return false
       return true

@@ -11,6 +11,7 @@ const ESTILOS_ESTADO: Record<EstadoPedido, string> = {
   Listo: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
   Entregado: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
   Cancelado: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
+  'Venta con pérdida': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
 }
 
 export function StatusBadge({ estado }: { estado: EstadoPedido }) {

@@ -93,6 +93,46 @@ export const FinanzasService = {
     return ok(movimientos)
   },
 
+  // Contraparte de distribuirUtilidad(): reparte una pérdida de producción
+  // entre los mismos bolsillos y con los mismos porcentajes, como Gasto. Al
+  // ser Gasto, obtenerUtilidad() la resta de la utilidad del periodo.
+  async registrarPerdida(
+    valorPerdido: number,
+    pedidoId?: string,
+  ): Promise<ServiceResponse<MovimientoFinanciero[]>> {
+    if (valorPerdido <= 0) {
+      return fail('El valor de la pérdida debe ser mayor que cero.')
+    }
+
+    const { data: bolsillos, error: errorBolsillos } = await supabase
+      .from('bolsillos_financieros')
+      .select()
+      .eq('activo', true)
+
+    if (errorBolsillos || !bolsillos) {
+      return fail('No fue posible consultar los bolsillos financieros.')
+    }
+
+    const movimientos: MovimientoFinanciero[] = []
+    for (const bolsillo of bolsillos) {
+      const valor = Math.round(valorPerdido * (bolsillo.porcentaje / 100) * 100) / 100
+      if (valor <= 0) continue
+      const resultado = await insertarMovimiento({
+        bolsillo_id: bolsillo.id,
+        valor,
+        categoria: 'Venta con pérdida',
+        pedido_id: pedidoId,
+        tipo: 'Gasto',
+      })
+      if (!resultado.success || !resultado.data) {
+        return fail('No fue posible registrar la pérdida en los bolsillos.')
+      }
+      movimientos.push(resultado.data)
+    }
+
+    return ok(movimientos)
+  },
+
   async consultarMovimientos(
     filtros: ConsultarMovimientosFiltros = {},
   ): Promise<ServiceResponse<MovimientoFinanciero[]>> {

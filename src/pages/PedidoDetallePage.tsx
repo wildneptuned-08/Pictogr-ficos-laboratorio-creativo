@@ -36,7 +36,15 @@ import { ArchivoService } from '@/services/ArchivoService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import type { EstadoPedido, Pedido, PedidoDetalle, Producto } from '@/types/database'
 
-const ESTADOS: EstadoPedido[] = ['Nuevo', 'Diseño', 'Producción', 'Listo', 'Entregado', 'Cancelado']
+const ESTADOS: EstadoPedido[] = [
+  'Nuevo',
+  'Diseño',
+  'Producción',
+  'Listo',
+  'Entregado',
+  'Cancelado',
+  'Venta con pérdida',
+]
 const CANALES = ['WhatsApp', 'Instagram', 'Facebook', 'Tienda', 'Otro'] as const
 const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'] as const
 const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Nequi', 'Daviplata', 'Tarjeta', 'Otro'] as const
@@ -344,6 +352,7 @@ export function PedidoDetallePage() {
   const [cancelarAbierto, setCancelarAbierto] = useState(false)
   const [editarAbierto, setEditarAbierto] = useState(false)
   const [confirmarListoAbierto, setConfirmarListoAbierto] = useState(false)
+  const [confirmarPerdidaAbierto, setConfirmarPerdidaAbierto] = useState(false)
 
   const pedidoQuery = useQuery({
     queryKey: ['pedido', id],
@@ -497,12 +506,30 @@ export function PedidoDetallePage() {
   const entregaBloqueada = tieneSaldo
   const listoConSaldo = estadoSeleccionado === 'Listo' && tieneSaldo
 
+  // "Venta con pérdida" registra un gasto contra los bolsillos y es final:
+  // no se sale de él ni se llega desde Entregado (la RPC lo impide con
+  // P0013 y P0012 respectivamente).
+  const esPerdida = pedido.estado === 'Venta con pérdida'
+  const editable = !esPerdida && pedido.estado !== 'Entregado' && pedido.estado !== 'Cancelado'
+
+  function estadoDeshabilitado(estado: EstadoPedido): boolean {
+    if (estado === pedido!.estado) return true
+    if (esPerdida) return true
+    if (estado === 'Entregado' && entregaBloqueada) return true
+    if (estado === 'Venta con pérdida' && pedido!.estado === 'Entregado') return true
+    return false
+  }
+
   function aplicarCambioEstado() {
     if (!estadoSeleccionado) return
     if (estadoSeleccionado === 'Entregado' && entregaBloqueada) {
       toast.error(
         `No se puede marcar como Entregado: quedan ${formatCurrency(saldoPendiente)} de saldo pendiente.`,
       )
+      return
+    }
+    if (estadoSeleccionado === 'Venta con pérdida') {
+      setConfirmarPerdidaAbierto(true)
       return
     }
     if (listoConSaldo) {
@@ -520,7 +547,7 @@ export function PedidoDetallePage() {
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge estado={pedido.estado} />
-            {pedido.estado !== 'Entregado' && pedido.estado !== 'Cancelado' && (
+            {editable && (
               <Button variant="outline" size="sm" onClick={() => setEditarAbierto(true)}>
                 <Pencil className="size-4" aria-hidden="true" />
                 Editar
@@ -661,6 +688,13 @@ export function PedidoDetallePage() {
         <div className="flex flex-col gap-4">
           <Card className="p-4">
             <h3 className="mb-3 font-medium">Cambiar estado</h3>
+            {esPerdida ? (
+              <p className="text-sm text-muted-foreground">
+                Este pedido quedó marcado como venta con pérdida. Es un estado final: el costo de
+                producción ya se descontó de la utilidad. Para corregirlo, registra un ajuste en
+                Finanzas.
+              </p>
+            ) : (
             <div className="flex flex-col gap-2">
               <Select value={estadoSeleccionado} onValueChange={(v) => setEstadoSeleccionado(v as EstadoPedido)}>
                 <SelectTrigger className="w-full">
@@ -668,13 +702,7 @@ export function PedidoDetallePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {ESTADOS.map((estado) => (
-                    <SelectItem
-                      key={estado}
-                      value={estado}
-                      disabled={
-                        estado === pedido.estado || (estado === 'Entregado' && entregaBloqueada)
-                      }
-                    >
+                    <SelectItem key={estado} value={estado} disabled={estadoDeshabilitado(estado)}>
                       {estado}
                       {estado === 'Entregado' && entregaBloqueada && ' (requiere saldo en cero)'}
                     </SelectItem>
@@ -704,6 +732,7 @@ export function PedidoDetallePage() {
                 {cambiarEstadoMutation.isPending ? 'Actualizando...' : 'Aplicar cambio'}
               </Button>
             </div>
+            )}
           </Card>
 
           <Card className="p-4">
@@ -775,6 +804,18 @@ export function PedidoDetallePage() {
         onGuardado={() => {
           invalidarTodo()
           queryClient.invalidateQueries({ queryKey: ['pedido-detalle', id] })
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmarPerdidaAbierto}
+        onOpenChange={setConfirmarPerdidaAbierto}
+        title="¿Marcar como venta con pérdida?"
+        description="El costo de producción de este pedido se descontará automáticamente de la utilidad y se repartirá como gasto entre los bolsillos. El pedido dejará de contar como venta y este estado no se puede revertir."
+        confirmLabel="Marcar con pérdida"
+        destructive
+        onConfirm={async () => {
+          await cambiarEstadoMutation.mutateAsync('Venta con pérdida')
         }}
       />
 

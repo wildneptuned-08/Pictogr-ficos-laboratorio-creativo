@@ -192,6 +192,16 @@ export const PedidoService = {
           'No se puede marcar como Entregado un pedido con saldo pendiente. Registra el pago completo primero.',
         )
       }
+      if (error.code === 'P0012') {
+        return fail(
+          'Un pedido ya entregado no puede marcarse como venta con pérdida: su utilidad ya se distribuyó.',
+        )
+      }
+      if (error.code === 'P0013') {
+        return fail(
+          'Venta con pérdida es un estado final. Para corregirlo, registra un ajuste en Finanzas.',
+        )
+      }
       return fail(friendlyMessage(error, FALLBACK_ERROR))
     }
 
@@ -199,6 +209,12 @@ export const PedidoService = {
     // pedido totalmente pagado, se distribuye automáticamente la utilidad.
     if (nuevoEstado === 'Entregado' && data.saldo_pendiente === 0) {
       await this.distribuirUtilidadSiCorresponde(data)
+    }
+
+    // Contraparte: el pedido perdido no genera venta, pero el costo de
+    // producción ya se gastó, así que se resta de la utilidad.
+    if (nuevoEstado === 'Venta con pérdida') {
+      await this.registrarPerdidaSiCorresponde(data)
     }
 
     return ok(data)
@@ -264,23 +280,38 @@ export const PedidoService = {
   },
 
   // No forma parte del contrato público del servicio: soporta cambiarEstado().
-  async distribuirUtilidadSiCorresponde(pedido: Pedido): Promise<void> {
-    const detalle = await this.obtenerDetalle(pedido.id)
-    if (!detalle.success || !detalle.data) return
+  async calcularCostoProduccion(pedidoId: string): Promise<number | null> {
+    const detalle = await this.obtenerDetalle(pedidoId)
+    if (!detalle.success || !detalle.data) return null
 
     const costos = await Promise.all(
       detalle.data.map((item) => CostoService.consultarCostos(item.producto_id)),
     )
 
-    const costoTotalPedido = detalle.data.reduce((total, item, index) => {
+    return detalle.data.reduce((total, item, index) => {
       const costoProducto = costos[index]
       const costoUnitario = costoProducto.success ? (costoProducto.data?.costo_total ?? 0) : 0
       return total + costoUnitario * item.cantidad
     }, 0)
+  },
+
+  async distribuirUtilidadSiCorresponde(pedido: Pedido): Promise<void> {
+    const costoTotalPedido = await this.calcularCostoProduccion(pedido.id)
+    if (costoTotalPedido === null) return
 
     const utilidadBruta = pedido.valor_total - costoTotalPedido
     if (utilidadBruta > 0) {
       await FinanzasService.distribuirUtilidad(utilidadBruta, pedido.id)
     }
+  },
+
+  // La pérdida es el costo de producción ya incurrido: los insumos se
+  // gastaron y el pedido no se pudo entregar, así que no hay ingreso que lo
+  // compense. Si el producto no tiene costos cargados, no hay nada que restar.
+  async registrarPerdidaSiCorresponde(pedido: Pedido): Promise<void> {
+    const costoTotalPedido = await this.calcularCostoProduccion(pedido.id)
+    if (costoTotalPedido === null || costoTotalPedido <= 0) return
+
+    await FinanzasService.registrarPerdida(costoTotalPedido, pedido.id)
   },
 }

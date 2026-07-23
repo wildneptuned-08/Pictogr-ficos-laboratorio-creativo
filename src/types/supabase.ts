@@ -843,6 +843,7 @@ export type Database = {
         | "Listo"
         | "Entregado"
         | "Cancelado"
+        | "Venta con pérdida"
       metodo_pago:
         | "Efectivo"
         | "Transferencia"
@@ -1001,6 +1002,7 @@ export const Constants = {
         "Listo",
         "Entregado",
         "Cancelado",
+        "Venta con pérdida",
       ],
       metodo_pago: [
         "Efectivo",

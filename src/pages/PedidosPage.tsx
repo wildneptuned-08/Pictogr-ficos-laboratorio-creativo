@@ -36,7 +36,15 @@ import type { EstadoPedido, Pedido } from '@/types/database'
 const CANALES = ['WhatsApp', 'Instagram', 'Facebook', 'Tienda', 'Otro'] as const
 const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'] as const
 const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Nequi', 'Daviplata', 'Tarjeta', 'Otro'] as const
-const ESTADOS: EstadoPedido[] = ['Nuevo', 'Diseño', 'Producción', 'Listo', 'Entregado', 'Cancelado']
+const ESTADOS: EstadoPedido[] = [
+  'Nuevo',
+  'Diseño',
+  'Producción',
+  'Listo',
+  'Entregado',
+  'Cancelado',
+  'Venta con pérdida',
+]
 
 const pedidoSchema = z.object({
   cliente_id: z.string().min(1, 'El cliente es obligatorio.'),

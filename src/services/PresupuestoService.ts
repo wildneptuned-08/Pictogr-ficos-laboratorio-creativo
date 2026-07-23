@@ -115,6 +115,7 @@ export const PresupuestoService = {
       .from('pedidos')
       .select('valor_total')
       .neq('estado', 'Cancelado')
+      .neq('estado', 'Venta con pérdida')
       .gte('fecha_pedido', desde)
       .lte('fecha_pedido', hasta)
 

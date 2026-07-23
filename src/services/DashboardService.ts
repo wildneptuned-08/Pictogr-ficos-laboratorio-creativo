@@ -41,7 +41,9 @@ async function sumarVentas(desde: string, hasta: string): Promise<ServiceRespons
   const { data, error } = await supabase
     .from('pedidos')
     .select('valor_total')
+    // Ni el pedido cancelado ni el perdido en producción son venta.
     .neq('estado', 'Cancelado')
+    .neq('estado', 'Venta con pérdida')
     .gte('fecha_pedido', desde)
     .lte('fecha_pedido', hasta)
 
@@ -132,6 +134,7 @@ export const DashboardService = {
       .from('pedidos')
       .select('fecha_pedido, valor_total')
       .neq('estado', 'Cancelado')
+      .neq('estado', 'Venta con pérdida')
       .gte('fecha_pedido', desde)
       .lte('fecha_pedido', hasta)
 

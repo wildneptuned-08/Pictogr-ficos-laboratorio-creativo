@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   LayoutDashboard,
@@ -8,10 +10,20 @@ import {
   Package,
   Users,
   Target,
+  ChevronRight,
+  ChevronDown,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { KpiCard } from '@/components/data/KpiCard'
+import { StatusBadge } from '@/components/data/StatusBadge'
 import { VentasChart } from '@/components/data/VentasChart'
 import { DashboardService } from '@/services/DashboardService'
 import { FinanzasService } from '@/services/FinanzasService'
@@ -20,16 +32,142 @@ import { ProductoService } from '@/services/ProductoService'
 import { ClienteService } from '@/services/ClienteService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { rangoDelMesActual } from '@/utils/dateRanges'
-import type { EstadoPedido } from '@/types/database'
+import { cn } from '@/lib/utils'
+import type { EstadoPedido, Pedido } from '@/types/database'
 
 const MESES_CORTOS = [
   'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
 ]
 
-const ESTADOS: EstadoPedido[] = ['Nuevo', 'Diseño', 'Producción', 'Listo', 'Entregado', 'Cancelado']
+const ESTADOS: EstadoPedido[] = [
+  'Nuevo',
+  'Diseño',
+  'Producción',
+  'Listo',
+  'Entregado',
+  'Cancelado',
+  'Venta con pérdida',
+]
+
+// Resumen que se abre al hacer clic en un estado de "Pedidos por estado":
+// conteo, montos agregados y, bajo demanda, el listado de pedidos.
+function ResumenEstadoDialog({
+  estado,
+  pedidos,
+  nombreCliente,
+  onOpenChange,
+}: {
+  estado: EstadoPedido | null
+  pedidos: Pedido[]
+  nombreCliente: (id: string) => string
+  onOpenChange: (abierto: boolean) => void
+}) {
+  const [detalleAbierto, setDetalleAbierto] = useState(false)
+
+  const delEstado = estado ? pedidos.filter((p) => p.estado === estado) : []
+  const valorTotal = delEstado.reduce((total, p) => total + p.valor_total, 0)
+  const pagado = delEstado.reduce((total, p) => total + p.anticipo, 0)
+  const saldo = delEstado.reduce((total, p) => total + p.saldo_pendiente, 0)
+
+  return (
+    <Dialog
+      open={estado !== null}
+      onOpenChange={(abierto) => {
+        if (!abierto) setDetalleAbierto(false)
+        onOpenChange(abierto)
+      }}
+    >
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            Pedidos
+            {estado && <StatusBadge estado={estado} />}
+          </DialogTitle>
+        </DialogHeader>
+
+        {delEstado.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No hay pedidos en este estado por el momento.
+          </p>
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border p-3">
+                <dt className="text-muted-foreground">Pedidos</dt>
+                <dd className="text-lg font-medium">{delEstado.length}</dd>
+              </div>
+              <div className="rounded-lg border p-3">
+                <dt className="text-muted-foreground">Valor total</dt>
+                <dd className="text-lg font-medium">{formatCurrency(valorTotal)}</dd>
+              </div>
+              <div className="rounded-lg border p-3">
+                <dt className="text-muted-foreground">Pagado</dt>
+                <dd className="text-lg font-medium">{formatCurrency(pagado)}</dd>
+              </div>
+              <div className="rounded-lg border p-3">
+                <dt className="text-muted-foreground">Saldo pendiente</dt>
+                <dd
+                  className={cn(
+                    'text-lg font-medium',
+                    saldo > 0 && 'text-amber-600 dark:text-amber-400',
+                  )}
+                >
+                  {formatCurrency(saldo)}
+                </dd>
+              </div>
+            </dl>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setDetalleAbierto((abierto) => !abierto)}
+            >
+              {detalleAbierto ? (
+                <ChevronDown className="size-4" aria-hidden="true" />
+              ) : (
+                <ChevronRight className="size-4" aria-hidden="true" />
+              )}
+              {detalleAbierto ? 'Ocultar detalle' : `Ver detalle (${delEstado.length})`}
+            </Button>
+
+            {detalleAbierto && (
+              <ul className="flex flex-col divide-y text-sm">
+                {delEstado.map((pedido) => (
+                  <li key={pedido.id} className="flex items-center justify-between gap-2 py-2">
+                    <div className="min-w-0">
+                      <Link
+                        to={`/pedidos/${pedido.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {pedido.numero_pedido}
+                      </Link>
+                      <p className="truncate text-muted-foreground">
+                        {nombreCliente(pedido.cliente_id)}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p>{formatCurrency(pedido.valor_total)}</p>
+                      {pedido.saldo_pendiente > 0 && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                          Debe {formatCurrency(pedido.saldo_pendiente)}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export function DashboardPage() {
   const { anio, mes, desde, hasta } = rangoDelMesActual()
+  const [estadoDetalle, setEstadoDetalle] = useState<EstadoPedido | null>(null)
 
   const { data: ventasDia = 0 } = useQuery({
     queryKey: ['dashboard-ventas-dia'],
@@ -285,13 +423,24 @@ export function DashboardPage() {
         </Card>
 
         <Card className="p-4">
-          <h3 className="mb-3 font-medium">Pedidos por estado</h3>
-          <div className="flex flex-col gap-2 text-sm">
+          <h3 className="mb-1 font-medium">Pedidos por estado</h3>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Haz clic en un estado para ver su resumen.
+          </p>
+          <div className="flex flex-col text-sm">
             {conteoPorEstado.map(({ estado, cantidad }) => (
-              <div key={estado} className="flex justify-between">
+              <button
+                key={estado}
+                type="button"
+                onClick={() => setEstadoDetalle(estado)}
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
                 <span className="text-muted-foreground">{estado}</span>
-                <span>{cantidad}</span>
-              </div>
+                <span className="flex items-center gap-1">
+                  {cantidad}
+                  <ChevronRight className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                </span>
+              </button>
             ))}
           </div>
         </Card>
@@ -357,6 +506,15 @@ export function DashboardPage() {
           )}
         </Card>
       </div>
+
+      <ResumenEstadoDialog
+        estado={estadoDetalle}
+        pedidos={pedidos}
+        nombreCliente={nombreCliente}
+        onOpenChange={(abierto) => {
+          if (!abierto) setEstadoDetalle(null)
+        }}
+      />
     </>
   )
 }
