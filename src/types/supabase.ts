@@ -303,6 +303,7 @@ export type Database = {
           created_at: string
           id: string
           nombre: string
+          observaciones: string | null
           proveedor: string | null
           proveedor_id: string | null
           stock_actual: number
@@ -318,11 +319,12 @@ export type Database = {
           created_at?: string
           id?: string
           nombre: string
+          observaciones?: string | null
           proveedor?: string | null
           proveedor_id?: string | null
           stock_actual?: number
           stock_minimo?: number
-          unidad_medida: string
+          unidad_medida?: string
           updated_at?: string
         }
         Update: {
@@ -333,6 +335,7 @@ export type Database = {
           created_at?: string
           id?: string
           nombre?: string
+          observaciones?: string | null
           proveedor?: string | null
           proveedor_id?: string | null
           stock_actual?: number

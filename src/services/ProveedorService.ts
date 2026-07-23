@@ -12,10 +12,32 @@ export type ActualizarProveedorInput = Partial<CrearProveedorInput>
 
 const FALLBACK_ERROR = 'No fue posible completar la operación con el proveedor.'
 
+// Marcas combinantes (categoría Unicode M) que deja sueltas normalize('NFD'):
+// permite convertir "Cartón" en "CARTON" antes de armar un prefijo.
+const DIACRITICOS = /\p{M}/gu
+
 // El prefijo forma parte de los códigos (PREFIJO-XXXX), así que se normaliza a
 // mayúsculas sin espacios para que coincida con lo que genera la base de datos.
 function normalizarPrefijo(prefijo: string): string {
   return prefijo.trim().toUpperCase().replace(/\s+/g, '')
+}
+
+// Prefijo tentativo para un proveedor que llega en una importación y todavía
+// no existe. Con varias palabras toma 3 letras de la primera y 2 de la
+// segunda ("Tienda Fla" -> TIEFL) para no chocar con otros del mismo grupo
+// ("Tienda Transfer" -> TIETR). El usuario puede cambiarlo después.
+export function sugerirPrefijo(nombre: string): string {
+  const palabras = nombre
+    .normalize('NFD')
+    .replace(DIACRITICOS, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (palabras.length === 0) return 'PROV'
+  if (palabras.length === 1) return palabras[0].slice(0, 5).toUpperCase()
+  return (palabras[0].slice(0, 3) + palabras[1].slice(0, 2)).toUpperCase()
 }
 
 export const ProveedorService = {
@@ -94,6 +116,50 @@ export const ProveedorService = {
 
     if (error) return fail(friendlyMessage(error, 'No fue posible listar los proveedores.'))
     return ok(data)
+  },
+
+  // Soporta la importación de inventario: devuelve un mapa nombre -> proveedor
+  // creando los que falten. La comparación de nombres ignora mayúsculas y
+  // espacios sobrantes para no duplicar "Sublimugs" y "sublimugs ".
+  async asegurarPorNombre(
+    nombres: string[],
+  ): Promise<ServiceResponse<{ mapa: Map<string, Proveedor>; creados: Proveedor[] }>> {
+    const existentes = await this.list()
+    if (!existentes.success || !existentes.data) {
+      return fail('No fue posible consultar los proveedores.')
+    }
+
+    const clave = (nombre: string) => nombre.trim().toLowerCase()
+    const mapa = new Map<string, Proveedor>()
+    for (const proveedor of existentes.data) mapa.set(clave(proveedor.nombre), proveedor)
+
+    const prefijosUsados = new Set(existentes.data.map((p) => p.prefijo_id))
+    const pendientes = Array.from(
+      new Set(nombres.map((n) => n.trim()).filter((n) => n && !mapa.has(clave(n)))),
+    )
+
+    const creados: Proveedor[] = []
+    for (const nombre of pendientes) {
+      // Si el prefijo sugerido ya está tomado, se numera hasta encontrar libre.
+      const base = sugerirPrefijo(nombre)
+      let prefijo = base
+      let intento = 2
+      while (prefijosUsados.has(prefijo)) {
+        prefijo = `${base}${intento}`.slice(0, 20)
+        intento += 1
+      }
+
+      const resultado = await this.create({ nombre, prefijo_id: prefijo })
+      if (!resultado.success || !resultado.data) {
+        return fail(`No fue posible crear el proveedor "${nombre}".`)
+      }
+
+      prefijosUsados.add(prefijo)
+      mapa.set(clave(nombre), resultado.data)
+      creados.push(resultado.data)
+    }
+
+    return ok({ mapa, creados })
   },
 
   async eliminar(id: string): Promise<ServiceResponse<Proveedor>> {

@@ -30,4 +30,7 @@ export type MovimientoFinanciero = Tables['movimientos_financieros']['Row']
 export type Presupuesto = Tables['presupuesto']['Row']
 export type HistorialPedido = Tables['historial_pedidos']['Row']
 export type ArchivoPedido = Tables['archivos_pedido']['Row']
+
+// Payload de UPDATE de una tabla, para construir cambios parciales tipados.
+export type ActualizacionDe<T extends keyof Tables> = Tables[T]['Update']
 export type Configuracion = Tables['configuracion']['Row']
