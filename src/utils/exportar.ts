@@ -7,6 +7,9 @@
 // haya declarado: si mañana se agrega una columna en la base, aparece sola en
 // la exportación en vez de perderse en silencio.
 
+import logoPictograficos from '@/assets/LogoPicto.jpeg'
+import type { Styles } from 'jspdf-autotable'
+
 // Marca de orden de bytes UTF-8. Sin ella Excel abre el CSV en ANSI y los
 // acentos salen corruptos. Se construye por codigo para no dejar un
 // caracter invisible en el fuente.
@@ -158,6 +161,33 @@ export async function exportarExcel<T>(
   )
 }
 
+// Dimensiones reales de src/assets/LogoPicto.jpeg (823x810 px). jsPDF no
+// puede medir un archivo por sí solo, así que la proporción va fija aquí;
+// si el archivo del logo cambia de forma, ajustar este valor.
+const RELACION_ASPECTO_LOGO = 823 / 810
+
+let bytesLogoCache: Promise<Uint8Array | null> | null = null
+
+// Carga el logo una sola vez por sesión: exportar varios reportes seguidos
+// no debe repetir la descarga del asset.
+function cargarBytesLogo(): Promise<Uint8Array | null> {
+  if (!bytesLogoCache) {
+    bytesLogoCache = fetch(logoPictograficos)
+      .then((res) => res.arrayBuffer())
+      .then((buffer) => new Uint8Array(buffer))
+      .catch(() => null) // Sin logo el reporte igual debe poder generarse.
+  }
+  return bytesLogoCache
+}
+
+// Toda columna de identificador ("ID", "ID del cliente"...) es un UUID: no se
+// lee en un informe impreso y, sin acotar su ancho, le quita espacio a las
+// columnas que sí importan. Se muestra truncada; el valor completo sigue
+// disponible en Excel y CSV.
+function esColumnaId(header: string): boolean {
+  return /^id(\s|$)/i.test(header)
+}
+
 /**
  * PDF horizontal: estos reportes tienen muchas columnas y en vertical
  * quedarían ilegibles.
@@ -172,22 +202,66 @@ export async function exportarPDF<T>(
   const autoTable = (await import('jspdf-autotable')).default
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+  const margenIzquierdo = 40
+  let inicioTexto = margenIzquierdo
 
+  const bytesLogo = await cargarBytesLogo()
+  if (bytesLogo) {
+    const altoLogo = 34
+    const anchoLogo = altoLogo * RELACION_ASPECTO_LOGO
+    try {
+      doc.addImage(bytesLogo, 'JPEG', margenIzquierdo, 22, anchoLogo, altoLogo)
+      inicioTexto = margenIzquierdo + anchoLogo + 12
+    } catch {
+      inicioTexto = margenIzquierdo // El logo no cargó: el texto vuelve al margen.
+    }
+  }
+
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
-  doc.text(titulo, 40, 40)
+  doc.text(titulo, inicioTexto, 42)
+  doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.text(
     `Generado el ${new Date().toLocaleString('es-CO')} — ${filas.length} registro(s)`,
-    40,
-    56,
+    inicioTexto,
+    58,
   )
 
+  const TAMANO_FUENTE_ENCABEZADO = 7
+  const RELLENO_CELDA = 3
+  const ANCHO_COLUMNA_ID = 55
+
+  // Ancho mínimo de cada columna: el de su palabra más larga (no el del
+  // encabezado completo), para que autoTable pueda seguir partiendo por
+  // espacios sin partir una palabra a la mitad — que es lo que "Prioridad"
+  // o "Valor total" hacían cuando la columna quedaba más angosta que ellos.
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(TAMANO_FUENTE_ENCABEZADO)
+  function anchoMinimoColumna(header: string): number {
+    const palabraMasAncha = Math.max(...header.split(' ').map((p) => doc.getTextWidth(p)))
+    return palabraMasAncha + RELLENO_CELDA * 2 + 2
+  }
+
+  const columnStyles: Record<number, Partial<Styles>> = {}
+  columnas.forEach((columna, indice) => {
+    columnStyles[indice] = esColumnaId(columna.header)
+      ? { cellWidth: ANCHO_COLUMNA_ID, overflow: 'ellipsize' }
+      : { minCellWidth: anchoMinimoColumna(columna.header) }
+  })
+
   autoTable(doc, {
-    startY: 70,
+    startY: 76,
     head: [columnas.map((c) => c.header)],
     body: filas.map((fila) => columnas.map((c) => comoTexto(c.value(fila)))),
-    styles: { fontSize: 6, cellPadding: 3, overflow: 'linebreak' },
-    headStyles: { fillColor: [51, 51, 51], fontSize: 6.5 },
+    styles: { fontSize: 6.5, cellPadding: RELLENO_CELDA, overflow: 'linebreak', valign: 'middle' },
+    headStyles: {
+      fillColor: [51, 51, 51],
+      fontSize: TAMANO_FUENTE_ENCABEZADO,
+      halign: 'center',
+      valign: 'middle',
+    },
+    columnStyles,
     alternateRowStyles: { fillColor: [247, 247, 247] },
     margin: { left: 20, right: 20 },
   })
