@@ -181,6 +181,30 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracion_mensajes: {
+        Row: {
+          created_at: string
+          estado: string
+          id: string
+          plantilla: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          estado: string
+          id?: string
+          plantilla: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          id?: string
+          plantilla?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       costos_producto: {
         Row: {
           costo_empaque: number

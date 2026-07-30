@@ -2,6 +2,22 @@
 // integración con ninguna API de WhatsApp, solo se arma un enlace wa.me con
 // el mensaje ya redactado para que alguien del equipo le dé clic y lo envíe.
 // Funciones puras, sin dependencias externas.
+//
+// El texto del mensaje es editable desde Configuración → "Mensaje a
+// clientes" (ver ConfiguracionMensajesService); esta constante es el
+// respaldo que se usa si nunca se guardó una plantilla, o si la consulta a
+// Supabase falla — el envío nunca debe quedar roto por falta de config.
+export const PLANTILLA_POR_DEFECTO_PRODUCCION =
+  '¡Hola {cliente}! 🎉\n\n' +
+  'Tu pedido #{pedido} ya está en *{estado}*. Agradecemos mucho la confianza ' +
+  'en {empresa}. Muy pronto lo tendrás en tus manos ✨'
+
+export interface VariablesMensaje {
+  cliente: string
+  pedido: string
+  estado: string
+  empresa: string
+}
 
 export interface PedidoParaWhatsApp {
   numero_pedido: string
@@ -19,45 +35,42 @@ export function normalizarTelefono(telefono: string): string {
   return limpio.length === 10 ? `57${limpio}` : limpio
 }
 
-export function construirMensajeProduccion({
-  nombreCliente,
-  numeroPedido,
-}: {
-  nombreCliente: string
-  numeroPedido: string
-}): string {
-  return (
-    `¡Hola ${nombreCliente}! 🎉\n\n` +
-    `Tu pedido #${numeroPedido} ya está en *Producción*. Agradecemos mucho la confianza ` +
-    `en PictoGráficos Laboratorio Creativo. Muy pronto lo tendrás en tus manos ✨`
-  )
+// Reemplaza {cliente}, {pedido}, {estado} y {empresa} por los datos reales.
+// Cualquier otro texto de la plantilla (emojis, *negrilla*, saltos de línea)
+// se deja intacto.
+export function interpolarPlantilla(plantilla: string, variables: VariablesMensaje): string {
+  return plantilla
+    .replaceAll('{cliente}', variables.cliente)
+    .replaceAll('{pedido}', variables.pedido)
+    .replaceAll('{estado}', variables.estado)
+    .replaceAll('{empresa}', variables.empresa)
 }
 
 export function construirEnlaceWhatsApp({
   telefono,
-  nombreCliente,
-  numeroPedido,
-}: {
-  telefono: string
-  nombreCliente: string
-  numeroPedido: string
-}): string {
-  const mensaje = construirMensajeProduccion({ nombreCliente, numeroPedido })
+  plantilla,
+  ...variables
+}: VariablesMensaje & { telefono: string; plantilla: string }): string {
+  const mensaje = interpolarPlantilla(plantilla, variables)
   return `https://wa.me/${normalizarTelefono(telefono)}?text=${encodeURIComponent(mensaje)}`
 }
 
 // Vanilla: retorna el HTML del botón como string ("" si no corresponde
 // mostrarlo), útil para reutilizar la regla fuera de un componente React.
-// La vista de Pedidos (React) no inyecta este string — usa las mismas
-// funciones de arriba para renderizar un <a> como JSX; ver PedidosPage.tsx.
-export function renderBotonWhatsApp(pedido: PedidoParaWhatsApp): string {
+// Usa siempre la plantilla por defecto (no consulta Supabase): la vista de
+// Pedidos (React) sí trae la plantilla guardada y arma su propio <a> como
+// JSX con las mismas funciones de arriba; ver PedidosPage.tsx.
+export function renderBotonWhatsApp(pedido: PedidoParaWhatsApp, nombreEmpresa = 'Pictográficos'): string {
   const telefono = pedido.cliente?.telefono
   if (pedido.estado !== 'Producción' || !telefono) return ''
 
   const enlace = construirEnlaceWhatsApp({
     telefono,
-    nombreCliente: pedido.cliente?.nombre ?? '',
-    numeroPedido: pedido.numero_pedido,
+    plantilla: PLANTILLA_POR_DEFECTO_PRODUCCION,
+    cliente: pedido.cliente?.nombre ?? '',
+    pedido: pedido.numero_pedido,
+    estado: pedido.estado,
+    empresa: nombreEmpresa,
   })
 
   return (

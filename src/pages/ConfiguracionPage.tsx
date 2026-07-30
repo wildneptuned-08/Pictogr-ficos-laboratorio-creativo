@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,8 +9,198 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { ConfiguracionService } from '@/services/ConfiguracionService'
+import { ConfiguracionMensajesService } from '@/services/ConfiguracionMensajesService'
 import { FinanzasService } from '@/services/FinanzasService'
+import { PLANTILLA_POR_DEFECTO_PRODUCCION, interpolarPlantilla } from '@/utils/whatsapp'
+
+const ESTADO_MENSAJE = 'Producción'
+const EMOJIS_RAPIDOS = ['👋', '😊', '✅', '📦', '🎉', '🙏', '⏳', '📲']
+const VARIABLES_MENSAJE = ['{cliente}', '{pedido}', '{estado}', '{empresa}']
+
+// WhatsApp muestra *texto* en negrita: se simula igual en la vista previa
+// (se escapa primero el HTML propio del usuario para no ejecutar nada raro).
+function renderizarVistaPrevia(texto: string): string {
+  const escapado = texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escapado.replace(/\*(.+?)\*/g, '<strong>$1</strong>')
+}
+
+function SeccionMensajeWhatsApp() {
+  const queryClient = useQueryClient()
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [confirmarSinVariables, setConfirmarSinVariables] = useState(false)
+
+  const { data: configuracion } = useQuery({
+    queryKey: ['configuracion'],
+    queryFn: async () => {
+      const resultado = await ConfiguracionService.obtenerConfiguracion()
+      if (!resultado.success) throw new Error(resultado.error?.message)
+      return resultado.data
+    },
+  })
+  const nombreEmpresa = configuracion?.nombre_empresa || 'Pictográficos'
+
+  const plantillaQuery = useQuery({
+    queryKey: ['plantilla-whatsapp', ESTADO_MENSAJE],
+    queryFn: async () => {
+      const resultado = await ConfiguracionMensajesService.obtener(ESTADO_MENSAJE)
+      return resultado.success && resultado.data ? resultado.data : PLANTILLA_POR_DEFECTO_PRODUCCION
+    },
+  })
+
+  // Mismo patrón que los formularios de producto/cliente (values re-sincroniza
+  // solo cuando el contenido realmente cambia): evita un useEffect+setState
+  // manual para volcar el dato de la consulta al campo editable.
+  const { register, setValue, control } = useForm<{ plantilla: string }>({
+    values: plantillaQuery.data !== undefined ? { plantilla: plantillaQuery.data } : undefined,
+  })
+  const plantilla = useWatch({ control, name: 'plantilla' }) ?? ''
+  const { ref: registrarRef, ...campoPlantilla } = register('plantilla')
+
+  function insertarEnCursor(texto: string) {
+    const el = textareaRef.current
+    if (!el) {
+      setValue('plantilla', plantilla + texto)
+      return
+    }
+    const inicio = el.selectionStart ?? plantilla.length
+    const fin = el.selectionEnd ?? plantilla.length
+    const nuevo = plantilla.slice(0, inicio) + texto + plantilla.slice(fin)
+    setValue('plantilla', nuevo)
+    requestAnimationFrame(() => {
+      el.focus()
+      const posicion = inicio + texto.length
+      el.setSelectionRange(posicion, posicion)
+    })
+  }
+
+  const mutation = useMutation({
+    mutationFn: () => ConfiguracionMensajesService.guardar(ESTADO_MENSAJE, plantilla),
+    onSuccess: (resultado) => {
+      if (!resultado.success) {
+        toast.error(resultado.error?.message ?? 'No fue posible guardar el mensaje.')
+        return
+      }
+      toast.success('Mensaje de WhatsApp actualizado.')
+      queryClient.invalidateQueries({ queryKey: ['plantilla-whatsapp', ESTADO_MENSAJE] })
+    },
+  })
+
+  function intentarGuardar() {
+    if (!plantilla.trim()) {
+      toast.error('El mensaje no puede quedar vacío.')
+      return
+    }
+    if (!plantilla.includes('{cliente}') && !plantilla.includes('{pedido}')) {
+      setConfirmarSinVariables(true)
+      return
+    }
+    mutation.mutate()
+  }
+
+  const vistaPrevia = interpolarPlantilla(plantilla, {
+    cliente: 'Jhoncito',
+    pedido: 'PED-000013',
+    estado: 'Producción',
+    empresa: nombreEmpresa,
+  })
+
+  return (
+    <Card className="p-4">
+      <h3 className="mb-1 font-medium">Mensaje a clientes (WhatsApp)</h3>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Texto que se abre en WhatsApp al enviar el aviso de un pedido en &quot;Producción&quot;
+        (botón <span aria-hidden="true">📲</span> en Pedidos).
+      </p>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Insertar emoji</Label>
+          <div className="flex flex-wrap gap-1">
+            {EMOJIS_RAPIDOS.map((emoji) => (
+              <Button
+                key={emoji}
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                onClick={() => insertarEnCursor(emoji)}
+                aria-label={`Insertar ${emoji}`}
+              >
+                {emoji}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Variables disponibles</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {VARIABLES_MENSAJE.map((variable) => (
+              <button
+                key={variable}
+                type="button"
+                onClick={() => insertarEnCursor(variable)}
+                className="rounded-full border border-input bg-muted px-2.5 py-1 font-mono text-xs hover:bg-muted/70"
+              >
+                {variable}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="plantilla_whatsapp">Plantilla del mensaje</Label>
+          <Textarea
+            id="plantilla_whatsapp"
+            rows={6}
+            className="font-mono text-sm"
+            {...campoPlantilla}
+            ref={(el) => {
+              registrarRef(el)
+              textareaRef.current = el
+            }}
+          />
+          <p className="self-end text-xs text-muted-foreground">{plantilla.length} caracteres</p>
+        </div>
+
+        <div>
+          <Label className="mb-1.5 block text-xs text-muted-foreground">Vista previa</Label>
+          <div
+            className="rounded-lg border border-border bg-muted/30 p-3 text-sm whitespace-pre-wrap"
+            dangerouslySetInnerHTML={{ __html: renderizarVistaPrevia(vistaPrevia) }}
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={mutation.isPending} onClick={intentarGuardar}>
+            {mutation.isPending ? 'Guardando...' : 'Guardar'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setValue('plantilla', PLANTILLA_POR_DEFECTO_PRODUCCION)}
+          >
+            Restaurar mensaje por defecto
+          </Button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmarSinVariables}
+        onOpenChange={setConfirmarSinVariables}
+        title="¿Guardar sin variables?"
+        description="Tu mensaje no incluye {cliente} ni {pedido}: se enviará igual a todos los clientes, sin personalizar. ¿Quieres continuar?"
+        confirmLabel="Guardar de todas formas"
+        onConfirm={() => mutation.mutate()}
+      />
+    </Card>
+  )
+}
 
 const empresaSchema = z.object({
   nombre_empresa: z.string().optional(),
@@ -247,6 +437,7 @@ export function ConfiguracionPage() {
       <div className="flex flex-col gap-4">
         <SeccionEmpresa />
         <SeccionPreferencias />
+        <SeccionMensajeWhatsApp />
         <SeccionBolsillos />
       </div>
     </>

@@ -30,8 +30,10 @@ import { cn } from '@/lib/utils'
 import { PedidoService, type PedidoConCliente } from '@/services/PedidoService'
 import { ClienteService } from '@/services/ClienteService'
 import { ProductoService } from '@/services/ProductoService'
+import { ConfiguracionService } from '@/services/ConfiguracionService'
+import { ConfiguracionMensajesService } from '@/services/ConfiguracionMensajesService'
 import { formatCurrency } from '@/utils/formatCurrency'
-import { construirEnlaceWhatsApp } from '@/utils/whatsapp'
+import { construirEnlaceWhatsApp, PLANTILLA_POR_DEFECTO_PRODUCCION } from '@/utils/whatsapp'
 import type { EstadoPedido } from '@/types/database'
 
 const CANALES = ['WhatsApp', 'Instagram', 'Facebook', 'Tienda', 'Otro'] as const
@@ -313,6 +315,27 @@ export function PedidosPage() {
     },
   })
 
+  const { data: configuracion } = useQuery({
+    queryKey: ['configuracion'],
+    queryFn: async () => {
+      const resultado = await ConfiguracionService.obtenerConfiguracion()
+      if (!resultado.success) throw new Error(resultado.error?.message)
+      return resultado.data
+    },
+  })
+  const nombreEmpresa = configuracion?.nombre_empresa || 'Pictográficos'
+
+  // Plantilla editable desde Configuración → "Mensaje a clientes". Si nunca
+  // se guardó una, o la consulta falla, se usa el mensaje por defecto: el
+  // botón de WhatsApp no debe dejar de funcionar por falta de configuración.
+  const { data: plantillaProduccion = PLANTILLA_POR_DEFECTO_PRODUCCION } = useQuery({
+    queryKey: ['plantilla-whatsapp', 'Producción'],
+    queryFn: async () => {
+      const resultado = await ConfiguracionMensajesService.obtener('Producción')
+      return resultado.success && resultado.data ? resultado.data : PLANTILLA_POR_DEFECTO_PRODUCCION
+    },
+  })
+
   const columnas: DataTableColumn<PedidoConCliente>[] = [
     {
       header: 'Número',
@@ -354,8 +377,11 @@ export function PedidosPage() {
               <a
                 href={construirEnlaceWhatsApp({
                   telefono: p.cliente.telefono,
-                  nombreCliente: p.cliente.nombre,
-                  numeroPedido: p.numero_pedido,
+                  plantilla: plantillaProduccion,
+                  cliente: p.cliente.nombre,
+                  pedido: p.numero_pedido,
+                  estado: p.estado,
+                  empresa: nombreEmpresa,
                 })}
                 target="_blank"
                 rel="noopener noreferrer"

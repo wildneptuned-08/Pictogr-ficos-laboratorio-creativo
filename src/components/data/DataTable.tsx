@@ -85,7 +85,7 @@ export function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => alternarOrden(index)}
-                      className="flex items-center gap-1 font-medium hover:text-foreground"
+                      className="inline-flex items-center gap-1 font-medium hover:text-foreground"
                     >
                       {columna.header}
                       {sortIndex === index &&
