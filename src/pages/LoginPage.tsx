@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CursorTrail } from '@/components/layout/CursorTrail'
 import logo from '@/assets/LogoPicto.jpeg'
+import logoDesarrollador from '@/assets/ZoftwareTechJA.png'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Ingresa tu correo.').email('Correo inválido.'),
@@ -108,6 +109,16 @@ export function LoginPage() {
             {isSubmitting ? 'Ingresando...' : 'Ingresar'}
           </Button>
         </form>
+      </div>
+
+      <div className="absolute inset-x-0 bottom-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60">
+        <img
+          src={logoDesarrollador}
+          alt=""
+          aria-hidden="true"
+          className="size-4 rounded-sm opacity-80"
+        />
+        <span>Desarrollado por Zoftware Tech JA · 2026</span>
       </div>
     </div>
   )
