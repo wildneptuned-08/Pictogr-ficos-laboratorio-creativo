@@ -51,12 +51,23 @@ export function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background p-4">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[28rem] opacity-40 blur-3xl"
+        style={{
+          background:
+            'radial-gradient(ellipse 60% 100% at 50% 0%, var(--primary), transparent 70%)',
+        }}
+      />
       <CursorTrail />
       <div className="glow-card relative w-full max-w-sm rounded-xl p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <img src={logo} alt="PictoGráficos" className="size-16 rounded-full" />
           <h1 className="text-lg font-semibold">PictoGráficos</h1>
+          <p className="text-xs font-medium tracking-wide text-primary">
+            💡 Laboratorio Creativo
+          </p>
           <p className="text-sm text-muted-foreground">
             Inicia sesión para continuar.
           </p>
