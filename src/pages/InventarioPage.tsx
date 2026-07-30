@@ -28,7 +28,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { InventarioService } from '@/services/InventarioService'
+import {
+  InventarioService,
+  claveIdentidadInsumo,
+  stockTotalPorInsumo,
+} from '@/services/InventarioService'
 import { ProveedorService } from '@/services/ProveedorService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import { leerInventarioExcel, type FilaInventarioExcel } from '@/utils/importarInventarioExcel'
@@ -46,6 +50,7 @@ const insumoSchema = z.object({
   costo_unitario: z.coerce.number().nonnegative('No puede ser negativo.'),
   stock_minimo: z.coerce.number().nonnegative('No puede ser negativo.'),
   observaciones: z.string().optional(),
+  fecha_ingreso: z.string().optional(),
 })
 
 type InsumoFormInput = z.input<typeof insumoSchema>
@@ -53,8 +58,13 @@ type InsumoFormValues = z.output<typeof insumoSchema>
 
 // "Por debajo del mínimo" es estricto: un insumo que está justo en su mínimo
 // todavía alcanza. Con <= el 62% del inventario real quedaba en alerta.
-function bajoMinimo(insumo: Inventario): boolean {
-  return insumo.stock_actual < insumo.stock_minimo
+// Compara la SUMA de todas las filas/lotes del insumo (misma identidad, ver
+// claveIdentidadInsumo) contra el mínimo, no el stock de una sola fila: un
+// insumo repartido en dos lotes pequeños no debe salir "crítico" si la suma
+// alcanza.
+function bajoMinimo(insumo: Inventario, totales: Map<string, number>): boolean {
+  const total = totales.get(claveIdentidadInsumo(insumo)) ?? insumo.stock_actual
+  return total < insumo.stock_minimo
 }
 
 function InsumoFormDialog({
@@ -90,6 +100,7 @@ function InsumoFormDialog({
           costo_unitario: insumo.costo_unitario,
           stock_minimo: insumo.stock_minimo,
           observaciones: insumo.observaciones ?? '',
+          fecha_ingreso: insumo.fecha_ingreso ?? '',
         }
       : {
           categoria: '',
@@ -99,6 +110,7 @@ function InsumoFormDialog({
           costo_unitario: 0,
           stock_minimo: 0,
           observaciones: '',
+          fecha_ingreso: '',
         },
   })
 
@@ -122,8 +134,13 @@ function InsumoFormDialog({
           costo_unitario: values.costo_unitario,
           stock_minimo: values.stock_minimo,
           observaciones: values.observaciones,
+          fecha_ingreso: values.fecha_ingreso || null,
         })
-      : await InventarioService.crear({ ...values, proveedor_id: proveedor })
+      : await InventarioService.crear({
+          ...values,
+          proveedor_id: proveedor,
+          fecha_ingreso: values.fecha_ingreso || null,
+        })
 
     if (!resultado.success) {
       toast.error(resultado.error?.message ?? 'No fue posible guardar el insumo.')
@@ -247,6 +264,15 @@ function InsumoFormDialog({
                 <p className="text-sm text-destructive">{errors.stock_minimo.message}</p>
               )}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="fecha_ingreso">Fecha de ingreso</Label>
+            <Input id="fecha_ingreso" type="date" {...register('fecha_ingreso')} />
+            <p className="text-xs text-muted-foreground">
+              Fecha de la factura de compra al proveedor (no la de este registro). Ordena el
+              consumo FIFO al pasar un pedido a Producción.
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -462,8 +488,9 @@ function ImportarExcelDialog({
           <div className="rounded-lg border border-dashed p-4 text-sm">
             <p className="mb-2 text-muted-foreground">
               El archivo debe tener una pestaña <strong>Inventario</strong> con las columnas:
-              CATEGORIA, PRODUCTO, PROVEEDOR, CANTIDAD, COSTO UNITARIO, COSTO TOTAL, STOCK MÍNIMO y
-              OBSERVACIONES.
+              CATEGORIA, PRODUCTO, PROVEEDOR, CANTIDAD, COSTO UNITARIO, COSTO TOTAL, STOCK MÍNIMO,
+              OBSERVACIONES y FECHA INGRESO (fecha de la factura de compra al proveedor, formato
+              dd/mm/aaaa; puede ir vacía).
             </p>
             <input
               ref={inputRef}
@@ -501,8 +528,9 @@ function ImportarExcelDialog({
             <>
               <p className="text-sm">
                 Se importarán <strong>{filas.length}</strong> filas. Los insumos que ya existan
-                (misma categoría, producto y observaciones) se actualizarán; el resto se creará. Los
-                proveedores que no existan se crearán automáticamente.
+                (misma categoría, producto, observaciones y fecha de ingreso) se actualizarán; una
+                fecha distinta crea un lote nuevo. Los proveedores que no existan se crearán
+                automáticamente.
               </p>
 
               <div className="max-h-64 overflow-auto rounded-lg border">
@@ -516,6 +544,7 @@ function ImportarExcelDialog({
                       <th className="p-2 text-right">C. unit.</th>
                       <th className="p-2 text-right">Mín.</th>
                       <th className="p-2">Observaciones</th>
+                      <th className="p-2">Fecha ingreso</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -528,6 +557,7 @@ function ImportarExcelDialog({
                         <td className="p-2 text-right">{formatCurrency(fila.costo_unitario)}</td>
                         <td className="p-2 text-right">{fila.stock_minimo}</td>
                         <td className="p-2 text-muted-foreground">{fila.observaciones}</td>
+                        <td className="p-2 text-muted-foreground">{fila.fecha_ingreso ?? '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -559,6 +589,8 @@ export function InventarioPage() {
   const [insumoAEliminar, setInsumoAEliminar] = useState<Inventario | null>(null)
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>(TODAS_LAS_CATEGORIAS)
   const [soloBajoMinimo, setSoloBajoMinimo] = useState(false)
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
 
   const { data: insumos = [], isLoading } = useQuery({
     queryKey: ['inventario'],
@@ -598,7 +630,25 @@ export function InventarioPage() {
     [insumos],
   )
 
-  const criticos = useMemo(() => insumos.filter(bajoMinimo), [insumos])
+  const totalesPorInsumo = useMemo(() => stockTotalPorInsumo(insumos), [insumos])
+
+  // Un insumo con varios lotes cuenta una sola vez en la alerta y el KPI,
+  // aunque tenga varias filas — el criterio es la identidad, no la fila.
+  const criticos = useMemo(() => {
+    const vistos = new Set<string>()
+    const resultado: Inventario[] = []
+    for (const insumo of insumos) {
+      const clave = claveIdentidadInsumo(insumo)
+      if (vistos.has(clave)) continue
+      const total = totalesPorInsumo.get(clave) ?? insumo.stock_actual
+      if (total < insumo.stock_minimo) {
+        vistos.add(clave)
+        resultado.push({ ...insumo, stock_actual: total })
+      }
+    }
+    return resultado
+  }, [insumos, totalesPorInsumo])
+
   const valorInventario = insumos.reduce((total, i) => total + i.stock_actual * i.costo_unitario, 0)
 
   const filtrados = useMemo(
@@ -607,10 +657,15 @@ export function InventarioPage() {
         if (categoriaFiltro !== TODAS_LAS_CATEGORIAS && insumo.categoria !== categoriaFiltro) {
           return false
         }
-        if (soloBajoMinimo && !bajoMinimo(insumo)) return false
+        if (soloBajoMinimo && !bajoMinimo(insumo, totalesPorInsumo)) return false
+        if (desde || hasta) {
+          if (!insumo.fecha_ingreso) return false
+          if (desde && insumo.fecha_ingreso < desde) return false
+          if (hasta && insumo.fecha_ingreso > hasta) return false
+        }
         return true
       }),
-    [insumos, categoriaFiltro, soloBajoMinimo],
+    [insumos, categoriaFiltro, soloBajoMinimo, totalesPorInsumo, desde, hasta],
   )
 
   // Mismo orden de columnas que la pestaña "Inventario" del Excel del negocio.
@@ -624,7 +679,7 @@ export function InventarioPage() {
       header: 'Producto',
       accessor: (i) => (
         <div className="flex items-center gap-2">
-          {bajoMinimo(i) && (
+          {bajoMinimo(i, totalesPorInsumo) && (
             <AlertTriangle
               className="size-4 shrink-0 text-amber-600 dark:text-amber-400"
               aria-label="Stock en o bajo el mínimo"
@@ -647,11 +702,19 @@ export function InventarioPage() {
       header: 'Cantidad',
       className: 'text-right',
       accessor: (i) => (
-        <span className={cn(bajoMinimo(i) && 'font-medium text-amber-600 dark:text-amber-400')}>
+        <span
+          className={cn(bajoMinimo(i, totalesPorInsumo) && 'font-medium text-amber-600 dark:text-amber-400')}
+        >
           {i.stock_actual}
         </span>
       ),
       sortValue: (i) => i.stock_actual,
+    },
+    {
+      header: 'Fecha de ingreso',
+      accessor: (i) =>
+        i.fecha_ingreso ? new Date(`${i.fecha_ingreso}T00:00:00`).toLocaleDateString('es-CO') : '—',
+      sortValue: (i) => i.fecha_ingreso ?? '',
     },
     {
       header: 'Costo unitario',
@@ -758,6 +821,20 @@ export function InventarioPage() {
               <AlertTriangle className="size-4" aria-hidden="true" />
               Solo bajo mínimo ({criticos.length})
             </Button>
+            <Input
+              type="date"
+              className="w-40"
+              aria-label="Fecha de ingreso desde"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+            />
+            <Input
+              type="date"
+              className="w-40"
+              aria-label="Fecha de ingreso hasta"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+            />
           </>
         }
       />

@@ -2,13 +2,16 @@
 // "Ventas Picto.xlsx"). Sus columnas, en orden:
 //
 //   CATEGORIA | PRODUCTO | PROVEEDOR | CANTIDAD | COSTO UNITARIO |
-//   COSTO TOTAL | STOCK MÍNIMO | OBSERVACIONES
+//   COSTO TOTAL | STOCK MÍNIMO | OBSERVACIONES | FECHA INGRESO
 //
-// Dos particularidades del archivo real que obligan a normalizar:
+// Tres particularidades del archivo real que obligan a normalizar:
 //   - La categoría está agrupada visualmente: solo aparece en la primera fila
 //     de cada grupo y las siguientes van vacías. Se arrastra hacia abajo.
 //   - COSTO TOTAL es una fórmula. No se lee: se recalcula como
 //     cantidad x costo unitario, que es la única fuente de verdad.
+//   - FECHA INGRESO es la fecha de la factura de compra al proveedor (no la
+//     de la importación): si la celda viene vacía, el insumo queda sin fecha
+//     (se puede completar luego a mano), no bloquea la fila.
 
 export interface FilaInventarioExcel {
   fila: number
@@ -19,6 +22,7 @@ export interface FilaInventarioExcel {
   costo_unitario: number
   stock_minimo: number
   observaciones: string
+  fecha_ingreso: string | null
 }
 
 export interface ResultadoLectura {
@@ -36,6 +40,7 @@ const ENCABEZADOS_ESPERADOS = [
   'COSTO TOTAL',
   'STOCK MÍNIMO',
   'OBSERVACIONES',
+  'FECHA INGRESO',
 ]
 
 // Una celda de exceljs puede ser texto, número, fórmula {formula, result},
@@ -82,6 +87,36 @@ function numeroCelda(valor: unknown): number | null {
 
   const numero = Number(normalizado)
   return Number.isFinite(numero) ? numero : null
+}
+
+// Excel puede traer la fecha como Date nativo (exceljs la construye en UTC
+// para celdas con formato fecha) o como texto "dd/mm/aaaa" / "aaaa-mm-dd".
+// Sin formato reconocible, se deja vacía en vez de bloquear la fila: la
+// fecha se puede completar luego a mano desde el módulo de Inventario.
+function fechaCelda(valor: unknown): string | null {
+  if (valor instanceof Date) {
+    const anio = valor.getUTCFullYear()
+    const mes = String(valor.getUTCMonth() + 1).padStart(2, '0')
+    const dia = String(valor.getUTCDate()).padStart(2, '0')
+    return `${anio}-${mes}-${dia}`
+  }
+
+  const texto = valorCelda(valor).trim()
+  if (!texto) return null
+
+  const conSeparador = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
+  if (conSeparador) {
+    const [, dia, mes, anio] = conSeparador
+    return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
+  }
+
+  const iso = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (iso) {
+    const [, anio, mes, dia] = iso
+    return `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`
+  }
+
+  return null
 }
 
 function normalizarEncabezado(texto: string): string {
@@ -134,6 +169,7 @@ export async function leerInventarioExcel(archivo: File): Promise<ResultadoLectu
   const colCostoUnitario = indice('COSTO UNITARIO')
   const colStockMinimo = indice('STOCK MÍNIMO')
   const colObservaciones = indice('OBSERVACIONES')
+  const colFechaIngreso = indice('FECHA INGRESO')
 
   let categoriaActual = ''
 
@@ -147,6 +183,7 @@ export async function leerInventarioExcel(archivo: File): Promise<ResultadoLectu
     const cantidad = numeroCelda(fila.getCell(colCantidad).value)
     const costoUnitario = numeroCelda(fila.getCell(colCostoUnitario).value)
     const stockMinimo = numeroCelda(fila.getCell(colStockMinimo).value)
+    const fechaIngreso = fechaCelda(fila.getCell(colFechaIngreso).value)
 
     // Arrastre de la categoría agrupada.
     if (categoria) categoriaActual = categoria
@@ -176,6 +213,7 @@ export async function leerInventarioExcel(archivo: File): Promise<ResultadoLectu
       costo_unitario: costoUnitario,
       stock_minimo: stockMinimo ?? 0,
       observaciones,
+      fecha_ingreso: fechaIngreso,
     })
   }
 

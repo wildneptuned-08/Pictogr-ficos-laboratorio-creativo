@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Users, Plus, Pencil, UserX, Search } from 'lucide-react'
+import { Users, Plus, Pencil, UserX, Search, Receipt } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/data/DataTable'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
@@ -177,6 +178,11 @@ export function ClientesPage() {
       className: 'text-right',
       accessor: (c) => (
         <div className="flex justify-end gap-1">
+          <Button variant="ghost" size="icon-sm" aria-label={`Cuenta de cobro de ${c.nombre}`} asChild>
+            <Link to={`/clientes/${c.id}/cuenta-cobro`}>
+              <Receipt className="size-4" aria-hidden="true" />
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

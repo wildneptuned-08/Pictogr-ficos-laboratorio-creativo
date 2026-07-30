@@ -29,12 +29,14 @@ import {
 import { ProductoService } from '@/services/ProductoService'
 import { CategoriaProductoService } from '@/services/CategoriaProductoService'
 import { ProveedorService } from '@/services/ProveedorService'
+import { InventarioService, insumosUnicosPorIdentidad } from '@/services/InventarioService'
 import { formatCurrency } from '@/utils/formatCurrency'
 import type { Producto } from '@/types/database'
 
 // Radix Select no admite un item con value="", así que se usa un centinela
-// para representar "sin proveedor".
+// para representar "sin proveedor" / "sin insumo vinculado".
 const SIN_PROVEEDOR = '__sin_proveedor__'
+const SIN_INSUMO = '__sin_insumo__'
 
 const productoSchema = z.object({
   nombre: z.string().min(1, 'El nombre es obligatorio.'),
@@ -42,6 +44,7 @@ const productoSchema = z.object({
   precio_base: z.coerce.number().positive('El precio base debe ser mayor que cero.'),
   descripcion: z.string().optional(),
   proveedor_id: z.string().optional(),
+  insumo_id: z.string().optional(),
 })
 
 type ProductoFormInput = z.input<typeof productoSchema>
@@ -164,6 +167,16 @@ function ProductoFormDialog({
     },
   })
 
+  const { data: insumos = [] } = useQuery({
+    queryKey: ['inventario'],
+    queryFn: async () => {
+      const resultado = await InventarioService.listarInsumos()
+      if (!resultado.success) throw new Error(resultado.error?.message)
+      return resultado.data ?? []
+    },
+  })
+  const opcionesInsumo = insumosUnicosPorIdentidad(insumos)
+
   const {
     register,
     handleSubmit,
@@ -180,11 +193,13 @@ function ProductoFormDialog({
           precio_base: producto.precio_base,
           descripcion: producto.descripcion ?? '',
           proveedor_id: producto.proveedor_id ?? SIN_PROVEEDOR,
+          insumo_id: producto.insumo_id ?? SIN_INSUMO,
         }
       : undefined,
   })
   const categoriaId = useWatch({ control, name: 'categoria_id' })
   const proveedorId = useWatch({ control, name: 'proveedor_id' })
+  const insumoId = useWatch({ control, name: 'insumo_id' })
 
   async function onSubmit(values: ProductoFormValues) {
     const payload = {
@@ -193,6 +208,8 @@ function ProductoFormDialog({
         !values.proveedor_id || values.proveedor_id === SIN_PROVEEDOR
           ? null
           : values.proveedor_id,
+      insumo_id:
+        !values.insumo_id || values.insumo_id === SIN_INSUMO ? null : values.insumo_id,
     }
     const resultado = esEdicion
       ? await ProductoService.update(producto!.id, payload)
@@ -268,6 +285,31 @@ function ProductoFormDialog({
                 El código ya asignado no cambia al editar el proveedor.
               </p>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="insumo_id">Insumo en Inventario</Label>
+            <Select
+              value={insumoId ?? SIN_INSUMO}
+              onValueChange={(value) => setValue('insumo_id', value)}
+            >
+              <SelectTrigger id="insumo_id" className="w-full">
+                <SelectValue placeholder="Sin insumo vinculado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SIN_INSUMO}>Sin insumo vinculado</SelectItem>
+                {opcionesInsumo.map((insumo) => (
+                  <SelectItem key={insumo.id} value={insumo.id}>
+                    {insumo.categoria ? `${insumo.categoria} — ` : ''}
+                    {insumo.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Al marcar un pedido con este producto como &quot;Producción&quot;, se descuenta de
+              este insumo la misma cantidad pedida (del lote más antiguo al más reciente).
+            </p>
           </div>
 
           <div className="flex flex-col gap-1.5">

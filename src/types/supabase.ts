@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       archivos_pedido: {
@@ -301,6 +276,7 @@ export type Database = {
           codigo: string
           costo_unitario: number
           created_at: string
+          fecha_ingreso: string | null
           id: string
           nombre: string
           observaciones: string | null
@@ -314,9 +290,10 @@ export type Database = {
         Insert: {
           activo?: boolean
           categoria?: string | null
-          codigo?: string
+          codigo: string
           costo_unitario?: number
           created_at?: string
+          fecha_ingreso?: string | null
           id?: string
           nombre: string
           observaciones?: string | null
@@ -333,6 +310,7 @@ export type Database = {
           codigo?: string
           costo_unitario?: number
           created_at?: string
+          fecha_ingreso?: string | null
           id?: string
           nombre?: string
           observaciones?: string | null
@@ -621,6 +599,7 @@ export type Database = {
           created_at: string
           descripcion: string | null
           id: string
+          insumo_id: string | null
           nombre: string
           precio_base: number
           proveedor_id: string | null
@@ -633,6 +612,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           id?: string
+          insumo_id?: string | null
           nombre: string
           precio_base: number
           proveedor_id?: string | null
@@ -645,6 +625,7 @@ export type Database = {
           created_at?: string
           descripcion?: string | null
           id?: string
+          insumo_id?: string | null
           nombre?: string
           precio_base?: number
           proveedor_id?: string | null
@@ -656,6 +637,13 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias_producto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "productos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "inventario"
             referencedColumns: ["id"]
           },
           {
@@ -698,14 +686,14 @@ export type Database = {
     Functions: {
       actualizar_pedido_detalle: {
         Args: {
-          p_pedido_id: string
-          p_detalle: Json
-          p_descuento?: number
-          p_fecha_entrega?: string
-          p_prioridad?: Database["public"]["Enums"]["prioridad_pedido"]
           p_canal_ingreso?: Database["public"]["Enums"]["canal_ingreso_pedido"]
-          p_observaciones?: string
+          p_descuento?: number
+          p_detalle: Json
+          p_fecha_entrega?: string
           p_metodo_pago?: Database["public"]["Enums"]["metodo_pago"]
+          p_observaciones?: string
+          p_pedido_id: string
+          p_prioridad?: Database["public"]["Enums"]["prioridad_pedido"]
         }
         Returns: {
           anticipo: number
@@ -765,6 +753,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      consumir_insumos_produccion: {
+        Args: { p_numero_pedido: string; p_pedido_id: string }
+        Returns: undefined
+      }
       crear_pedido: {
         Args: {
           p_anticipo?: number
@@ -803,6 +795,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      generar_codigo_unico: { Args: { p_prefijo: string }; Returns: string }
       registrar_pago_pedido: {
         Args: { p_pedido_id: string; p_valor: number }
         Returns: {
@@ -986,9 +979,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       canal_ingreso_pedido: [

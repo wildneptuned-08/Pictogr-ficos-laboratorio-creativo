@@ -25,7 +25,7 @@ export interface ColumnaExport<T> {
 // Las librerías pesadas (exceljs ~930 kB, jspdf ~400 kB) se cargan solo al
 // exportar, con import() dinámico, para no engordar el arranque de la app.
 
-function descargar(contenido: Blob, nombreArchivo: string): void {
+export function descargar(contenido: Blob, nombreArchivo: string): void {
   const url = URL.createObjectURL(contenido)
   const enlace = document.createElement('a')
   enlace.href = url

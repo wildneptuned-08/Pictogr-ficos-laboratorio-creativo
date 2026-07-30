@@ -6,6 +6,7 @@ import type { ServiceResponse } from '@/types/service'
 import type { Json } from '@/types/supabase'
 import type {
   CanalIngresoPedido,
+  Cliente,
   EstadoPedido,
   HistorialPedido,
   MetodoPago,
@@ -13,6 +14,15 @@ import type {
   PedidoDetalle,
   PrioridadPedido,
 } from '@/types/database'
+
+// Pedido con el cliente relacionado embebido (nombre + teléfono): lo usa la
+// vista de Pedidos para el botón de WhatsApp sin disparar una consulta por
+// fila (evita N+1). `cliente_id` es NOT NULL en la base, así que en la
+// práctica siempre viene un cliente; se tipa como nullable solo porque
+// PostgREST no lo garantiza a nivel de tipos.
+export interface PedidoConCliente extends Pedido {
+  cliente: Pick<Cliente, 'nombre' | 'telefono'> | null
+}
 
 export interface DetalleInput {
   producto_id: string
@@ -163,6 +173,30 @@ export const PedidoService = {
     return ok(data)
   },
 
+  // Misma consulta que list(), pero trae el nombre y teléfono del cliente
+  // en el mismo viaje (join embebido de PostgREST), para el botón de
+  // WhatsApp de la vista de Pedidos. Método aparte de list() para no
+  // cambiarle la forma del resultado a sus otros consumidores
+  // (DashboardPage, ReporteService).
+  async listConCliente(
+    filtros: ListarPedidosFiltros = {},
+  ): Promise<ServiceResponse<PedidoConCliente[]>> {
+    let query = supabase.from('pedidos').select('*, cliente:clientes(nombre, telefono)')
+
+    if (filtros.clienteId) query = query.eq('cliente_id', filtros.clienteId)
+    if (filtros.estado) query = query.eq('estado', filtros.estado)
+
+    const { data, error } = await query.order('fecha_pedido', { ascending: false })
+
+    if (error) return fail(friendlyMessage(error, 'No fue posible listar los pedidos.'))
+    // PostgREST devuelve el embed como objeto único (cliente_id es un FK
+    // simple, no una relación muchos-a-muchos); el generador de tipos de
+    // Supabase no puede confirmar la cardinalidad sin una unique constraint
+    // en cliente_id, así que lo tipa de forma conservadora. Se castea aquí
+    // una sola vez en vez de pelear con el inferido en cada consumidor.
+    return ok(data as unknown as PedidoConCliente[])
+  },
+
   async obtenerDetalle(pedidoId: string): Promise<ServiceResponse<PedidoDetalle[]>> {
     const { data, error } = await supabase
       .from('pedido_detalle')
@@ -200,6 +234,14 @@ export const PedidoService = {
       if (error.code === 'P0013') {
         return fail(
           'Venta con pérdida es un estado final. Para corregirlo, registra un ajuste en Finanzas.',
+        )
+      }
+      if (error.code === 'P0014') {
+        const insumo = error.message.split(':')[1]?.trim()
+        return fail(
+          insumo
+            ? `No hay stock suficiente de "${insumo}" para pasar este pedido a Producción.`
+            : 'No hay stock suficiente de un insumo para pasar este pedido a Producción.',
         )
       }
       return fail(friendlyMessage(error, FALLBACK_ERROR))

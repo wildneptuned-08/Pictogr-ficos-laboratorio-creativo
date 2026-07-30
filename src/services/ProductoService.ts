@@ -10,6 +10,10 @@ export interface CrearProductoInput {
   descripcion?: string
   precio_base: number
   proveedor_id?: string | null
+  // Insumo de Inventario que se descuenta cuando el pedido pasa a
+  // Producción (misma cantidad que el pedido, sin multiplicador). Opcional:
+  // un producto sin insumo vinculado no descuenta nada.
+  insumo_id?: string | null
 }
 
 export type ActualizarProductoInput = Partial<CrearProductoInput>

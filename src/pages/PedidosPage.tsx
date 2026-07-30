@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ShoppingCart, Plus, Trash2, Eye } from 'lucide-react'
+import { ShoppingCart, Plus, Trash2, Eye, MessageCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/data/DataTable'
 import { StatusBadge } from '@/components/data/StatusBadge'
@@ -27,11 +27,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { PedidoService } from '@/services/PedidoService'
+import { PedidoService, type PedidoConCliente } from '@/services/PedidoService'
 import { ClienteService } from '@/services/ClienteService'
 import { ProductoService } from '@/services/ProductoService'
 import { formatCurrency } from '@/utils/formatCurrency'
-import type { EstadoPedido, Pedido } from '@/types/database'
+import { construirEnlaceWhatsApp } from '@/utils/whatsapp'
+import type { EstadoPedido } from '@/types/database'
 
 const CANALES = ['WhatsApp', 'Instagram', 'Facebook', 'Tienda', 'Otro'] as const
 const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'] as const
@@ -298,10 +299,13 @@ export function PedidosPage() {
   const [formAbierto, setFormAbierto] = useState(false)
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
 
+  // listConCliente trae el nombre y teléfono del cliente en la misma
+  // consulta (join embebido): lo necesita la columna "Cliente" y el botón
+  // de WhatsApp, sin pedirlo aparte por cada fila.
   const { data: pedidos = [], isLoading } = useQuery({
     queryKey: ['pedidos', filtroEstado],
     queryFn: async () => {
-      const resultado = await PedidoService.list(
+      const resultado = await PedidoService.listConCliente(
         filtroEstado === 'todos' ? {} : { estado: filtroEstado },
       )
       if (!resultado.success) throw new Error(resultado.error?.message)
@@ -309,24 +313,13 @@ export function PedidosPage() {
     },
   })
 
-  const { data: clientes = [] } = useQuery({
-    queryKey: ['clientes'],
-    queryFn: async () => {
-      const resultado = await ClienteService.list()
-      if (!resultado.success) throw new Error(resultado.error?.message)
-      return resultado.data ?? []
-    },
-  })
-  const nombreCliente = (clienteId: string) =>
-    clientes.find((c) => c.id === clienteId)?.nombre ?? '—'
-
-  const columnas: DataTableColumn<Pedido>[] = [
+  const columnas: DataTableColumn<PedidoConCliente>[] = [
     {
       header: 'Número',
       accessor: (p) => p.numero_pedido,
       sortValue: (p) => p.numero_pedido,
     },
-    { header: 'Cliente', accessor: (p) => nombreCliente(p.cliente_id) },
+    { header: 'Cliente', accessor: (p) => p.cliente?.nombre ?? '—' },
     { header: 'Estado', accessor: (p) => <StatusBadge estado={p.estado} /> },
     {
       header: 'Valor total',
@@ -349,14 +342,38 @@ export function PedidosPage() {
       header: '',
       className: 'text-right',
       accessor: (p) => (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Ver pedido ${p.numero_pedido}`}
-          onClick={() => navigate(`/pedidos/${p.id}`)}
-        >
-          <Eye className="size-4" aria-hidden="true" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          {p.estado === 'Producción' && p.cliente?.telefono && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-[#25D366] hover:bg-[#25D366]/10 hover:text-[#25D366]"
+              aria-label={`Enviar aviso de producción por WhatsApp a ${p.cliente.nombre}`}
+              asChild
+            >
+              <a
+                href={construirEnlaceWhatsApp({
+                  telefono: p.cliente.telefono,
+                  nombreCliente: p.cliente.nombre,
+                  numeroPedido: p.numero_pedido,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MessageCircle className="size-4" aria-hidden="true" />
+              </a>
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Ver pedido ${p.numero_pedido}`}
+            onClick={() => navigate(`/pedidos/${p.id}`)}
+          >
+            <Eye className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
       ),
     },
   ]

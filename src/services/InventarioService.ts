@@ -21,6 +21,7 @@ export interface CrearInsumoInput {
   costo_unitario?: number
   observaciones?: string | null
   unidad_medida?: string
+  fecha_ingreso?: string | null
 }
 
 export type ActualizarInsumoInput = Partial<CrearInsumoInput>
@@ -33,6 +34,46 @@ export interface ResumenImportacion {
 
 const FALLBACK_ERROR = 'No fue posible registrar el movimiento de inventario.'
 const STOCK_INSUFICIENTE = 'No hay stock suficiente para esta operación.'
+
+const normalizar = (texto: string | null | undefined) => (texto ?? '').trim().toLowerCase()
+
+// El mismo insumo (misma categoría+nombre+observaciones) puede repartirse en
+// varias filas de `inventario`, una por cada lote/compra (ver
+// 20260729120000 y 20260729120100): esta es la identidad "conceptual" que
+// las agrupa para sumarlas, sin importar en qué fila/lote esté cada unidad.
+export function claveIdentidadInsumo(
+  insumo: Pick<Inventario, 'categoria' | 'nombre' | 'observaciones'>,
+): string {
+  return [normalizar(insumo.categoria), normalizar(insumo.nombre), normalizar(insumo.observaciones)].join(
+    '||',
+  )
+}
+
+// Un insumo puede tener varias filas (una por lote de compra, ver
+// claveIdentidadInsumo): para elegir "el" insumo al vincularlo a un producto
+// (productos.insumo_id) solo hace falta UNA fila como ancla por identidad,
+// no listar cada lote por separado. El consumo FIFO en Producción resuelve
+// las filas hermanas en tiempo de ejecución a partir de esa ancla.
+export function insumosUnicosPorIdentidad(insumos: Inventario[]): Inventario[] {
+  const porClave = new Map<string, Inventario>()
+  for (const insumo of insumos) {
+    const clave = claveIdentidadInsumo(insumo)
+    const actual = porClave.get(clave)
+    if (!actual || insumo.updated_at > actual.updated_at) porClave.set(clave, insumo)
+  }
+  return Array.from(porClave.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+}
+
+// Suma el stock de todas las filas que comparten identidad, para comparar
+// contra el stock mínimo del insumo (no el de una sola fila/lote).
+export function stockTotalPorInsumo(insumos: Inventario[]): Map<string, number> {
+  const totales = new Map<string, number>()
+  for (const insumo of insumos) {
+    const clave = claveIdentidadInsumo(insumo)
+    totales.set(clave, (totales.get(clave) ?? 0) + insumo.stock_actual)
+  }
+  return totales
+}
 
 async function insertarMovimiento(
   input: RegistrarMovimientoInput & { tipo: 'Entrada' | 'Salida' | 'Ajuste' },
@@ -110,6 +151,8 @@ export const InventarioService = {
     return ok(data)
   },
 
+  // Agrupa por identidad de insumo (no por fila/lote): un insumo con varios
+  // lotes pequeños no debe salir "crítico" si la suma alcanza el mínimo.
   async obtenerStockCritico(): Promise<ServiceResponse<Inventario[]>> {
     const { data, error } = await supabase
       .from('inventario')
@@ -119,9 +162,29 @@ export const InventarioService = {
 
     if (error) return fail(friendlyMessage(error, 'No fue posible consultar el stock crítico.'))
 
-    // Estrictamente por debajo: estar justo en el mínimo no es crítico.
-    // Misma regla que bajoMinimo() en InventarioPage.
-    const criticos = data.filter((item) => item.stock_actual < item.stock_minimo)
+    const grupos = new Map<string, Inventario[]>()
+    for (const insumo of data) {
+      const clave = claveIdentidadInsumo(insumo)
+      const filas = grupos.get(clave) ?? []
+      filas.push(insumo)
+      grupos.set(clave, filas)
+    }
+
+    const criticos: Inventario[] = []
+    for (const filas of grupos.values()) {
+      const stockTotal = filas.reduce((total, fila) => total + fila.stock_actual, 0)
+      // Todas las filas de un mismo insumo deberían compartir stock_minimo;
+      // si no coinciden, se usa el de la fila más reciente (mismo criterio
+      // que fecha_ingreso al reimportar: gana el dato más nuevo).
+      const representativa = filas.reduce((masReciente, fila) =>
+        fila.updated_at > masReciente.updated_at ? fila : masReciente,
+      )
+      // Estrictamente por debajo: estar justo en el mínimo no es crítico.
+      if (stockTotal < representativa.stock_minimo) {
+        criticos.push({ ...representativa, stock_actual: stockTotal })
+      }
+    }
+
     return ok(criticos)
   },
 
@@ -138,13 +201,16 @@ export const InventarioService = {
   },
 
   // El código lo genera un trigger a partir del prefijo del proveedor
-  // (migración 20260720120000), por eso no se envía desde aquí.
+  // (migración 20260720120000), por eso no se envía desde aquí: '' solo
+  // satisface el tipo (la columna es NOT NULL sin default declarado), el
+  // trigger la trata como "sin código" y la reemplaza igual.
   async crear(input: CrearInsumoInput): Promise<ServiceResponse<Inventario>> {
     if (!input.nombre.trim()) return fail('El nombre del insumo es obligatorio.')
 
     const { data, error } = await supabase
       .from('inventario')
       .insert({
+        codigo: '',
         nombre: input.nombre.trim(),
         categoria: input.categoria?.trim() || null,
         proveedor_id: input.proveedor_id || null,
@@ -153,6 +219,7 @@ export const InventarioService = {
         costo_unitario: input.costo_unitario ?? 0,
         observaciones: input.observaciones?.trim() || null,
         unidad_medida: input.unidad_medida?.trim() || 'Unidad',
+        fecha_ingreso: input.fecha_ingreso || null,
       })
       .select()
       .single()
@@ -183,6 +250,7 @@ export const InventarioService = {
     if (input.unidad_medida !== undefined) {
       cambios.unidad_medida = input.unidad_medida?.trim() || 'Unidad'
     }
+    if (input.fecha_ingreso !== undefined) cambios.fecha_ingreso = input.fecha_ingreso || null
 
     const { data, error } = await supabase
       .from('inventario')
@@ -209,10 +277,13 @@ export const InventarioService = {
     return ok(data)
   },
 
-  // Importación del Excel del negocio. Un insumo se considera "el mismo" si
-  // coinciden categoría + nombre + observaciones: el nombre solo no basta
-  // porque hay productos que únicamente se distinguen por la talla o el
-  // gramaje anotado en observaciones.
+  // Importación del Excel del negocio. Un insumo se considera "el mismo
+  // lote" si coinciden categoría + nombre + observaciones + fecha de
+  // ingreso: el nombre solo no basta porque hay productos que únicamente se
+  // distinguen por la talla o el gramaje anotado en observaciones, y la
+  // fecha es la que separa una compra de otra para el consumo FIFO — dos
+  // compras del mismo insumo en fechas distintas quedan en filas (lotes)
+  // separadas en vez de sumarse a una sola.
   async importar(filas: FilaInventarioExcel[]): Promise<ServiceResponse<ResumenImportacion>> {
     if (filas.length === 0) return fail('No hay filas para importar.')
 
@@ -232,13 +303,19 @@ export const InventarioService = {
       return fail(friendlyMessage(errorExistentes, 'No fue posible consultar el inventario.'))
     }
 
-    const normalizar = (texto: string | null | undefined) => (texto ?? '').trim().toLowerCase()
-    const claveDe = (categoria: string | null, nombre: string, observaciones: string | null) =>
-      [normalizar(categoria), normalizar(nombre), normalizar(observaciones)].join('||')
+    const claveDe = (
+      categoria: string | null,
+      nombre: string,
+      observaciones: string | null,
+      fechaIngreso: string | null,
+    ) => [claveIdentidadInsumo({ categoria, nombre, observaciones }), fechaIngreso ?? ''].join('||')
 
     const porClave = new Map<string, Inventario>()
     for (const insumo of existentes ?? []) {
-      porClave.set(claveDe(insumo.categoria, insumo.nombre, insumo.observaciones), insumo)
+      porClave.set(
+        claveDe(insumo.categoria, insumo.nombre, insumo.observaciones, insumo.fecha_ingreso),
+        insumo,
+      )
     }
 
     let creados = 0
@@ -249,7 +326,9 @@ export const InventarioService = {
         ? proveedores.data.mapa.get(fila.proveedor.trim().toLowerCase())
         : undefined
 
-      const existente = porClave.get(claveDe(fila.categoria, fila.nombre, fila.observaciones))
+      const existente = porClave.get(
+        claveDe(fila.categoria, fila.nombre, fila.observaciones, fila.fecha_ingreso),
+      )
 
       if (existente) {
         const { error } = await supabase
@@ -274,6 +353,7 @@ export const InventarioService = {
       const { data: creado, error } = await supabase
         .from('inventario')
         .insert({
+          codigo: '',
           nombre: fila.nombre,
           categoria: fila.categoria || null,
           proveedor_id: proveedor?.id ?? null,
@@ -282,6 +362,7 @@ export const InventarioService = {
           costo_unitario: fila.costo_unitario,
           observaciones: fila.observaciones || null,
           unidad_medida: 'Unidad',
+          fecha_ingreso: fila.fecha_ingreso || null,
         })
         .select()
         .single()
@@ -293,7 +374,10 @@ export const InventarioService = {
       }
 
       // Evita duplicar si el Excel repite la misma combinación dos veces.
-      porClave.set(claveDe(creado.categoria, creado.nombre, creado.observaciones), creado)
+      porClave.set(
+        claveDe(creado.categoria, creado.nombre, creado.observaciones, creado.fecha_ingreso),
+        creado,
+      )
       creados += 1
     }
 

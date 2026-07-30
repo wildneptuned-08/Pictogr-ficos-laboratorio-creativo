@@ -17,6 +17,9 @@ const PedidoDetallePage = lazy(() =>
 const ClientesPage = lazy(() =>
   import('@/pages/ClientesPage').then((m) => ({ default: m.ClientesPage })),
 )
+const ClienteCuentaCobroPage = lazy(() =>
+  import('@/pages/ClienteCuentaCobroPage').then((m) => ({ default: m.ClienteCuentaCobroPage })),
+)
 const ProductosPage = lazy(() =>
   import('@/pages/ProductosPage').then((m) => ({ default: m.ProductosPage })),
 )
@@ -58,6 +61,7 @@ export function AppRouter() {
               <Route path="pedidos" element={<PedidosPage />} />
               <Route path="pedidos/:id" element={<PedidoDetallePage />} />
               <Route path="clientes" element={<ClientesPage />} />
+              <Route path="clientes/:id/cuenta-cobro" element={<ClienteCuentaCobroPage />} />
               <Route path="productos" element={<ProductosPage />} />
               <Route path="proveedores" element={<ProveedoresPage />} />
               <Route path="finanzas" element={<FinanzasPage />} />
