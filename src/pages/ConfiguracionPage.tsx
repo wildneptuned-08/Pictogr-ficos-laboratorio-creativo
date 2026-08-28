@@ -206,6 +206,16 @@ const empresaSchema = z.object({
   nombre_empresa: z.string().optional(),
   correo_contacto: z.string().email('Correo inválido.').optional().or(z.literal('')),
   telefono_contacto: z.string().optional(),
+  direccion: z.string().optional(),
+  ciudad: z.string().optional(),
+  nit: z.string().optional(),
+  representante_legal_nombre: z.string().optional(),
+  representante_legal_documento: z.string().optional(),
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  tiktok: z.string().optional(),
+  whatsapp: z.string().optional(),
+  sitio_web: z.string().optional(),
 })
 
 type EmpresaFormValues = z.infer<typeof empresaSchema>
@@ -241,6 +251,16 @@ function SeccionEmpresa() {
         nombre_empresa: configuracion.nombre_empresa ?? '',
         correo_contacto: configuracion.correo_contacto ?? '',
         telefono_contacto: configuracion.telefono_contacto ?? '',
+        direccion: configuracion.direccion ?? '',
+        ciudad: configuracion.ciudad ?? '',
+        nit: configuracion.nit ?? '',
+        representante_legal_nombre: configuracion.representante_legal_nombre ?? '',
+        representante_legal_documento: configuracion.representante_legal_documento ?? '',
+        instagram: configuracion.instagram ?? '',
+        facebook: configuracion.facebook ?? '',
+        tiktok: configuracion.tiktok ?? '',
+        whatsapp: configuracion.whatsapp ?? '',
+        sitio_web: configuracion.sitio_web ?? '',
       })
     }
   }, [configuracion, reset])
@@ -276,6 +296,52 @@ function SeccionEmpresa() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="telefono_contacto">Teléfono de contacto</Label>
           <Input id="telefono_contacto" {...register('telefono_contacto')} />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="direccion">Dirección</Label>
+            <Input id="direccion" {...register('direccion')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ciudad">Ciudad</Label>
+            <Input id="ciudad" {...register('ciudad')} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="nit">NIT</Label>
+          <Input id="nit" {...register('nit')} />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="representante_legal_nombre">Representante legal</Label>
+            <Input id="representante_legal_nombre" {...register('representante_legal_nombre')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="representante_legal_documento">Documento del representante</Label>
+            <Input id="representante_legal_documento" {...register('representante_legal_documento')} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="whatsapp">WhatsApp</Label>
+            <Input id="whatsapp" {...register('whatsapp')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="instagram">Instagram</Label>
+            <Input id="instagram" placeholder="@usuario" {...register('instagram')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tiktok">TikTok</Label>
+            <Input id="tiktok" placeholder="@usuario" {...register('tiktok')} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="facebook">Facebook</Label>
+            <Input id="facebook" {...register('facebook')} />
+          </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sitio_web">Sitio web</Label>
+          <Input id="sitio_web" {...register('sitio_web')} />
         </div>
         <Button type="submit" disabled={isSubmitting} className="self-start">
           {isSubmitting ? 'Guardando...' : 'Guardar'}

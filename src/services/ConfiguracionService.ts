@@ -7,6 +7,16 @@ export interface ActualizarEmpresaInput {
   nombre_empresa?: string
   correo_contacto?: string
   telefono_contacto?: string
+  direccion?: string
+  ciudad?: string
+  nit?: string
+  representante_legal_nombre?: string
+  representante_legal_documento?: string
+  instagram?: string
+  facebook?: string
+  tiktok?: string
+  whatsapp?: string
+  sitio_web?: string
 }
 
 export interface ActualizarPreferenciasInput {

@@ -1,11 +1,10 @@
 // Genera la "Cuenta de cobro" como PDF con el mismo diseño de marca de la
 // plantilla de factura de Pictográficos (templates/factura-pictograficos.html
 // / artifact aprobado por el propietario): logo, barra de acento verde-azul,
-// tipografía y layout idénticos. A diferencia de esa plantilla (que deja
-// todo en blanco para editar a mano), este generador rellena los datos
-// reales del cliente y sus pedidos; solo quedan como placeholder punteado
-// los campos que la app todavía no guarda en ningún lado (NIT, dirección de
-// la empresa, redes sociales, representante legal — ver ConfiguracionPage).
+// tipografía y layout idénticos. Rellena los datos reales del cliente, sus
+// pedidos y los datos de la empresa (dirección, NIT, redes sociales,
+// representante legal — configurables en ConfiguracionPage); solo queda como
+// placeholder punteado lo que la empresa todavía no ha cargado ahí.
 //
 // Render: el HTML se escribe en un iframe oculto (documento aparte, así el
 // CSS con selectores `:root`/`body` de la plantilla no se filtra a la app),
@@ -34,6 +33,16 @@ export interface CuentaCobroPdfInput {
     nombre: string
     correo: string | null
     telefono: string | null
+    direccion: string | null
+    ciudad: string | null
+    nit: string | null
+    instagram: string | null
+    facebook: string | null
+    tiktok: string | null
+    whatsapp: string | null
+    sitioWeb: string | null
+    representanteLegalNombre: string | null
+    representanteLegalDocumento: string | null
   }
   periodo: { desde: string; hasta: string } // vacíos si no se filtró por fecha
   lineas: LineaFacturaPdf[]
@@ -77,9 +86,33 @@ function construirHtmlCuentaCobro(input: CuentaCobroPdfInput): string {
   const { cliente, empresa, periodo, lineas, resumen } = input
 
   const direccionEmpresa =
-    empresa.correo || empresa.telefono
-      ? [empresa.correo, empresa.telefono].filter(Boolean).join(' · ')
+    empresa.direccion || empresa.ciudad
+      ? [empresa.direccion, empresa.ciudad].filter(Boolean).map(escaparHtml).join(', ')
       : chip('Dirección, ciudad, país')
+
+  const nitEmpresa = empresa.nit ? escaparHtml(`NIT ${empresa.nit}`) : chip('NIT 000.000.000-0')
+
+  const filaRedSocial = (etiqueta: string, valor: string | null) =>
+    valor ? `<div class="row"><span>${etiqueta}</span><span>${escaparHtml(valor)}</span></div>` : ''
+
+  const filasRedesSociales =
+    [
+      filaRedSocial('Instagram', empresa.instagram),
+      filaRedSocial('Facebook', empresa.facebook),
+      filaRedSocial('TikTok', empresa.tiktok),
+      filaRedSocial('WhatsApp', empresa.whatsapp),
+      filaRedSocial('Sitio web', empresa.sitioWeb),
+    ]
+      .filter(Boolean)
+      .join('') ||
+    `<div class="row"><span>Instagram</span>${chip('@pictograficos')}</div>`
+
+  const representanteNombre = empresa.representanteLegalNombre
+    ? escaparHtml(empresa.representanteLegalNombre)
+    : chip('Nombre completo')
+  const representanteDocumento = empresa.representanteLegalDocumento
+    ? escaparHtml(`C.C. ${empresa.representanteLegalDocumento}`)
+    : chip('C.C. 0.000.000')
 
   const filasItems = lineas
     .map((linea) => {
@@ -163,7 +196,7 @@ function construirHtmlCuentaCobro(input: CuentaCobroPdfInput): string {
         <p class="tagline">Laboratorio Creativo</p>
         <p class="meta-line">
           ${direccionEmpresa}<br />
-          ${chip('NIT 000.000.000-0')}
+          ${nitEmpresa}
         </p>
       </div>
     </div>
@@ -221,19 +254,17 @@ function construirHtmlCuentaCobro(input: CuentaCobroPdfInput): string {
   <div class="footer-grid">
     <div class="side">
       <h2>Síguenos</h2>
-      <div class="row"><span>Instagram</span>${chip('@pictograficos')}</div>
-      <div class="row"><span>Facebook</span>${chip('/pictograficos')}</div>
-      <div class="row"><span>WhatsApp</span>${chip('+57 000 000 0000')}</div>
+      ${filasRedesSociales}
     </div>
     <div class="side">
       <h2>Representante legal</h2>
-      <div class="row"><span>Nombre</span>${chip('Nombre completo')}</div>
-      <div class="row"><span>Documento</span>${chip('C.C. 0.000.000')}</div>
+      <div class="row"><span>Nombre</span><span>${representanteNombre}</span></div>
+      <div class="row"><span>Documento</span><span>${representanteDocumento}</span></div>
       <div class="signature">Firma autorizada</div>
     </div>
   </div>
 
-  <p class="legal-line">Pictográficos Laboratorio Creativo · ${chip('NIT 000.000.000-0')} · ${chip('Dirección, ciudad, Colombia')}</p>
+  <p class="legal-line">Pictográficos Laboratorio Creativo · ${nitEmpresa} · ${direccionEmpresa}</p>
 </div>
 </body>
 </html>`

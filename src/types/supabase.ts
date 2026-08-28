@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -153,31 +153,61 @@ export type Database = {
       }
       configuracion: {
         Row: {
+          ciudad: string | null
           correo_contacto: string | null
           created_at: string
           dias_habiles_mes: number | null
+          direccion: string | null
+          facebook: string | null
           id: string
+          instagram: string | null
+          nit: string | null
           nombre_empresa: string | null
+          representante_legal_documento: string | null
+          representante_legal_nombre: string | null
+          sitio_web: string | null
           telefono_contacto: string | null
+          tiktok: string | null
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
+          ciudad?: string | null
           correo_contacto?: string | null
           created_at?: string
           dias_habiles_mes?: number | null
+          direccion?: string | null
+          facebook?: string | null
           id?: string
+          instagram?: string | null
+          nit?: string | null
           nombre_empresa?: string | null
+          representante_legal_documento?: string | null
+          representante_legal_nombre?: string | null
+          sitio_web?: string | null
           telefono_contacto?: string | null
+          tiktok?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
+          ciudad?: string | null
           correo_contacto?: string | null
           created_at?: string
           dias_habiles_mes?: number | null
+          direccion?: string | null
+          facebook?: string | null
           id?: string
+          instagram?: string | null
+          nit?: string | null
           nombre_empresa?: string | null
+          representante_legal_documento?: string | null
+          representante_legal_nombre?: string | null
+          sitio_web?: string | null
           telefono_contacto?: string | null
+          tiktok?: string | null
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }
