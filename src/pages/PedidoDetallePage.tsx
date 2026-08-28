@@ -350,6 +350,7 @@ export function PedidoDetallePage() {
   const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoPedido | ''>('')
   const [valorPago, setValorPago] = useState('')
   const [cancelarAbierto, setCancelarAbierto] = useState(false)
+  const [eliminarAbierto, setEliminarAbierto] = useState(false)
   const [editarAbierto, setEditarAbierto] = useState(false)
   const [confirmarListoAbierto, setConfirmarListoAbierto] = useState(false)
   const [confirmarPerdidaAbierto, setConfirmarPerdidaAbierto] = useState(false)
@@ -441,6 +442,19 @@ export function PedidoDetallePage() {
       toast.success('Pago registrado.')
       setValorPago('')
       invalidarTodo()
+    },
+  })
+
+  const eliminarMutation = useMutation({
+    mutationFn: () => PedidoService.eliminar(id!),
+    onSuccess: (resultado) => {
+      if (!resultado.success) {
+        toast.error(resultado.error?.message ?? 'No fue posible eliminar el pedido.')
+        return
+      }
+      toast.success('Pedido eliminado.')
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      navigate('/pedidos')
     },
   })
 
@@ -562,6 +576,10 @@ export function PedidoDetallePage() {
                 Cancelar pedido
               </Button>
             )}
+            <Button variant="destructive" size="sm" onClick={() => setEliminarAbierto(true)}>
+              <Trash2 className="size-4" aria-hidden="true" />
+              Eliminar pedido
+            </Button>
           </div>
         }
       />
@@ -839,6 +857,18 @@ export function PedidoDetallePage() {
         destructive
         onConfirm={async () => {
           await cambiarEstadoMutation.mutateAsync('Cancelado')
+        }}
+      />
+
+      <ConfirmDialog
+        open={eliminarAbierto}
+        onOpenChange={setEliminarAbierto}
+        title="¿Eliminar este pedido para siempre?"
+        description="Esta acción no se puede deshacer: se borran el pedido, sus productos, su historial de estados y sus archivos. Si ya tenía pagos registrados en Finanzas o consumo de inventario, esos movimientos también se eliminan (se revierte primero su efecto en los saldos, para que no queden descuadrados). Si solo quieres detener el pedido conservando su rastro, usa 'Cancelar pedido' en su lugar."
+        confirmLabel="Eliminar definitivamente"
+        destructive
+        onConfirm={async () => {
+          await eliminarMutation.mutateAsync()
         }}
       />
     </>

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ShoppingCart, Plus, Trash2, Eye, MessageCircle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { DataTable, type DataTableColumn } from '@/components/data/DataTable'
 import { StatusBadge } from '@/components/data/StatusBadge'
+import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -298,8 +299,23 @@ function NuevoPedidoDialog({
 
 export function PedidosPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [formAbierto, setFormAbierto] = useState(false)
   const [filtroEstado, setFiltroEstado] = useState<EstadoPedido | 'todos'>('todos')
+  const [pedidoAEliminar, setPedidoAEliminar] = useState<PedidoConCliente | null>(null)
+
+  const eliminarMutation = useMutation({
+    mutationFn: (pedidoId: string) => PedidoService.eliminar(pedidoId),
+    onSuccess: (resultado) => {
+      if (!resultado.success) {
+        toast.error(resultado.error?.message ?? 'No fue posible eliminar el pedido.')
+        return
+      }
+      toast.success('Pedido eliminado.')
+      setPedidoAEliminar(null)
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+    },
+  })
 
   // listConCliente trae el nombre y teléfono del cliente en la misma
   // consulta (join embebido): lo necesita la columna "Cliente" y el botón
@@ -399,6 +415,18 @@ export function PedidosPage() {
           >
             <Eye className="size-4" aria-hidden="true" />
           </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            aria-label={`Eliminar pedido ${p.numero_pedido}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              setPedidoAEliminar(p)
+            }}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </Button>
         </div>
       ),
     },
@@ -446,6 +474,18 @@ export function PedidosPage() {
       )}
 
       <NuevoPedidoDialog open={formAbierto} onOpenChange={setFormAbierto} />
+
+      <ConfirmDialog
+        open={pedidoAEliminar !== null}
+        onOpenChange={(open) => !open && setPedidoAEliminar(null)}
+        title={`¿Eliminar el pedido ${pedidoAEliminar?.numero_pedido} para siempre?`}
+        description="Esta acción no se puede deshacer: se borran el pedido, sus productos, su historial de estados y sus archivos. Si ya tenía pagos registrados en Finanzas o consumo de inventario, esos movimientos también se eliminan (se revierte primero su efecto en los saldos, para que no queden descuadrados). Si solo quieres detener el pedido conservando su rastro, cancélalo desde su detalle en su lugar."
+        confirmLabel="Eliminar definitivamente"
+        destructive
+        onConfirm={async () => {
+          if (pedidoAEliminar) await eliminarMutation.mutateAsync(pedidoAEliminar.id)
+        }}
+      />
     </>
   )
 }

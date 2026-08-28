@@ -280,6 +280,20 @@ export const PedidoService = {
     return this.cambiarEstado(pedidoId, 'Cancelado', motivo)
   },
 
+  // A diferencia de cancelar(), borra el pedido de forma definitiva junto
+  // con su detalle, historial y archivos, y con el rastro financiero y de
+  // inventario que haya generado (revirtiendo antes su efecto en los
+  // saldos de bolsillos y en el stock, vía la función eliminar_pedido).
+  async eliminar(pedidoId: string): Promise<ServiceResponse<void>> {
+    const { error } = await supabase.rpc('eliminar_pedido', { p_pedido_id: pedidoId })
+
+    if (error) {
+      if (error.code === 'P0004') return fail('No fue posible encontrar el pedido.')
+      return fail(friendlyMessage(error, 'No fue posible eliminar el pedido.'))
+    }
+    return ok(undefined)
+  },
+
   async finalizar(pedidoId: string): Promise<ServiceResponse<Pedido>> {
     return this.cambiarEstado(pedidoId, 'Entregado')
   },

@@ -849,6 +849,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      eliminar_pedido: { Args: { p_pedido_id: string }; Returns: undefined }
       generar_codigo_unico: { Args: { p_prefijo: string }; Returns: string }
       registrar_pago_pedido: {
         Args: { p_pedido_id: string; p_valor: number }
