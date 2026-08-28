@@ -87,7 +87,10 @@ function construirHtmlCuentaCobro(input: CuentaCobroPdfInput): string {
 
   const direccionEmpresa =
     empresa.direccion || empresa.ciudad
-      ? [empresa.direccion, empresa.ciudad].filter(Boolean).map(escaparHtml).join(', ')
+      ? [empresa.direccion, empresa.ciudad]
+          .filter((v): v is string => Boolean(v))
+          .map(escaparHtml)
+          .join(', ')
       : chip('Dirección, ciudad, país')
 
   const nitEmpresa = empresa.nit ? escaparHtml(`NIT ${empresa.nit}`) : chip('NIT 000.000.000-0')
